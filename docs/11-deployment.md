@@ -6,36 +6,23 @@
 
 ## Infrastructure Overview
 Developer's Machine (dev only, never serves production)
-
 │
-
 ▼
-
 GitHub Repository (main branch = production source)
-
 │
-
 ▼
-
 Vercel (automated deploy on push to main)
-
 │
-
 ├─── Next.js App (serverless functions + static assets)
-
 │         │
-
 │         └─── Connects to Neon PostgreSQL
-
 │
-
 └─── Vercel CDN Edge Network (caches public pages globally)
+
 External Services (always online, not developer-dependent):
-
-Neon PostgreSQL (production database with automated backups)
-Cloudinary (image storage and CDN)
-Sentry (error monitoring)
-
+- Neon PostgreSQL (production database with automated backups)
+- Cloudinary (image storage and CDN)
+- Sentry (error monitoring)
 
 **Critical operational fact:** Once deployed to Vercel + Neon, the application
 runs entirely in the cloud. Turning off the developer's laptop has zero impact
@@ -76,16 +63,14 @@ NEXT_PUBLIC_SENTRY_DSN="https://xxx@sentry.io/xxx"
 ## Deployment Pipeline
 
 ### Development Workflow
-
-Developer creates feature branch from main
-Code locally against Neon dev branch database
-Push branch to GitHub → Vercel creates Preview deployment (auto)
-Test Preview deployment (uses Preview env vars)
-Create pull request → review
-Merge to main → Vercel triggers production deployment (auto)
-Production deploy runs: build → test → deploy
-Prisma migrations must be run separately (see below)
-
+1. Developer creates feature branch from main
+2. Code locally against Neon dev branch database
+3. Push branch to GitHub → Vercel creates Preview deployment (auto)
+4. Test Preview deployment (uses Preview env vars)
+5. Create pull request → review
+6. Merge to main → Vercel triggers production deployment (auto)
+7. Production deploy runs: build → test → deploy
+8. Prisma migrations must be run separately (see below)
 
 ### Prisma Migration Strategy
 
@@ -112,7 +97,7 @@ production deploy by adding it as a build step, using `DATABASE_URL` set as
 a GitHub Secret (not Vercel Secret) pointing to production DB.
 
 ### Build Command (Vercel)
-prisma generate && next build
+`prisma generate && next build`
 `prisma generate` regenerates the Prisma Client from the schema before build.
 
 ### Initial Seed (One-Time, During First Deploy)
@@ -205,7 +190,6 @@ Google Drive via a GitHub Action:
 - [ ] robots.txt and sitemap.xml accessible.
 
 
-
 # docs/11-PERFORMANCE-MODEL.md
 
 # Performance Model
@@ -259,12 +243,18 @@ pooling, this saturates PostgreSQL's connection limit. The pooler handles this.
 
 ```prisma
 // Products: most important indexes
-@@index([isListed, deletedAt, stockQuantity])   // public catalog query
-@@index([slug])                                  // slug lookups
+@@index([isListed, deletedAt, availableUnitCount]) // public catalog query
+@@index([slug])                                    // slug lookups
 @@index([brandId])                               // brand filter
 @@index([categoryId])                            // category filter
 @@index([createdAt])                             // sort by newest
-@@index([stockQuantity])                         // low stock queries
+@@index([availableUnitCount])                     // low availability queries
+
+// Phone Units: critical indexes
+@@index([productId, status, deletedAt])          // count queries and active inventory lookup
+@@index([deletedAt])                             // soft delete filtering
+@@index([sku])                                   // unique SKU lookup
+@@index([imei])                                  // admin IMEI lookup
 
 // Full-text search
 // Created via raw migration (Prisma doesn't natively support GIN text search)
@@ -323,7 +313,11 @@ JOIN brands b ON p.brand_id = b.id
 JOIN categories c ON p.category_id = c.id
 WHERE p.deleted_at IS NULL
   AND p.is_listed = true
-  AND (p.stock_quantity > 0 OR p.visibility_override = true)
+  AND (
+    (p.is_unit_tracked = true AND p.available_unit_count > 0)
+    OR (p.is_unit_tracked = false AND p.stock_quantity > 0)
+    OR p.visibility_override = true
+  )
   AND (
     to_tsvector('english', p.name || ' ' || COALESCE(p.description, '') 
       || ' ' || b.name || ' ' || c.name)

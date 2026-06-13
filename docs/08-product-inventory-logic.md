@@ -10,7 +10,8 @@ decisions and must be implemented exactly as described.
 
 Used phones are unique items. Each phone is a `phone_unit` with its own identity.
 The inventory system tracks each unit individually through its lifecycle:
-UNIT CREATED (status = AVAILABLE)
+
+UNIT CREATED (status = AVAILABLE, deleted_at = NULL)
 
 ↓
 
@@ -25,13 +26,11 @@ Staff selects unit in billing panel → bill created → status = SOLD
 Unit is permanently sold (not reusable unless reversed by SUPER_ADMIN)
 
 Alternative paths:
-AVAILABLE → IN_REPAIR  (admin action — unit taken for repair)
-
-IN_REPAIR → AVAILABLE  (admin action — repair complete)
-
-AVAILABLE → DEFECTIVE  (admin action — unit found defective)
-
-DEFECTIVE → AVAILABLE  (admin action — unit repaired or re-graded)
+- AVAILABLE → IN_REPAIR  (admin action — unit taken for repair)
+- IN_REPAIR → AVAILABLE  (admin action — repair complete)
+- AVAILABLE → DEFECTIVE  (admin action — unit found defective)
+- DEFECTIVE → AVAILABLE  (admin action — unit repaired or re-graded)
+- ANY ACTIVE STATUS → SOFT DELETED (sets `deleted_at = now()`, excludes from active inventory)
 
 No path leads back from SOLD through the standard application UI. Reversals
 (e.g., customer returns) are a v2 feature.
@@ -44,23 +43,15 @@ Generic accessories and non-unit-tracked products use the traditional
 ## Product Visibility Decision
 
 A product is **publicly visible** when ALL of the following are true:
-deleted_at IS NULL
-
-AND is_listed = true
-
-AND (
-
-CASE
-
-WHEN is_unit_tracked = true THEN available_unit_count > 0
-
-WHEN is_unit_tracked = false THEN stock_quantity > 0
-
-END
-
-OR visibility_override = true
-
-)
+- `deleted_at` IS NULL
+- `is_listed` = true
+- (
+    CASE
+      WHEN `is_unit_tracked` = true THEN `available_unit_count` > 0
+      WHEN `is_unit_tracked` = false THEN `stock_quantity` > 0
+    END
+    OR `visibility_override` = true
+  )
 
 ### Visibility State Examples
 
@@ -79,8 +70,8 @@ OR visibility_override = true
 (incremented/decremented within transactions) rather than computed at query time.
 This avoids an expensive subquery (`SELECT COUNT(*) FROM phone_units WHERE ...`)
 on every public catalog query. The tradeoff is that this count must be kept in
-sync through careful transactional discipline — every status change that adds or
-removes a unit from the AVAILABLE pool must update this count in the same
+sync through careful transactional discipline — every status change or soft-deletion
+that adds or removes a unit from the AVAILABLE pool must update this count in the same
 transaction.
 
 If drift is detected (count does not match actual available units), an admin
@@ -103,94 +94,83 @@ BEGIN TRANSACTION
 
 ↓
 
-For each unit-tracked item in the bill:
-
-Lock the phone_unit row:
-
-SELECT id, status FROM phone_units WHERE id = $unitId FOR UPDATE
+1. For each unit-tracked item in the bill:
+   Lock the active phone_unit row:
+   ```sql
+   SELECT id, status, deleted_at FROM phone_units WHERE id = $unitId AND deleted_at IS NULL FOR UPDATE
+   ```
 
 ↓
 
 2. Validate each locked unit:
+   ```sql
+   if unit.status ≠ 'AVAILABLE' or unit.deleted_at IS NOT NULL:
+       ROLLBACK
+       RETURN error: UNIT_NOT_AVAILABLE { unitId, unitSku, currentStatus }
+   ```
 
-if unit.status ≠ 'AVAILABLE':
-
-ROLLBACK
-
-RETURN error: UNIT_NOT_AVAILABLE { unitId, unitSku, currentStatus }
 ↓
 
 3. For each generic (non-unit-tracked) item:
+   Lock the product row:
+   ```sql
+   SELECT id, stock_quantity FROM products WHERE id = $productId FOR UPDATE
+   ```
+   ```sql
+   if product.stock_quantity < item.quantity:
+       ROLLBACK
+       RETURN error: INSUFFICIENT_STOCK { productId, available }
+   ```
 
-Lock the product row:
-
-SELECT id, stock_quantity FROM products WHERE id = $productId FOR UPDATE
-
-if product.stock_quantity < item.quantity:
-
-ROLLBACK
-
-RETURN error: INSUFFICIENT_STOCK { productId, available }
 ↓
 
 4. All validations passed. Proceed.
+
 ↓
 
 5. Generate bill_number (BILL-YYYYMMDD-XXXX, counting today's bills +1)
+
 ↓
 
 6. INSERT into bills (header fields)
+
 ↓
 
 7. For each unit-tracked item:
+   a. Snapshot unit fields at this moment:
+      grade, storage, color, condition, has_box, has_charger,
+      has_earphones, selling_price, imei (for internal record)
+   b. INSERT into bill_items with all denormalized unit fields
+   c. UPDATE phone_units SET status = 'SOLD', updated_at = now()
+      WHERE id = unitId AND status = 'AVAILABLE' AND deleted_at IS NULL
+   d. UPDATE products SET available_unit_count = available_unit_count - 1,
+      version = version + 1, updated_at = now()
+      WHERE id = productId
+   e. INSERT into stock_movements (type = 'UNIT_SOLD',
+      quantity_change = -1, unit_status_before = 'AVAILABLE',
+      unit_status_after = 'SOLD', reference_type = 'BILL',
+      reference_id = bill.id)
 
-a. Snapshot unit fields at this moment:
-
-grade, storage, color, condition, has_box, has_charger,
-
-has_earphones, selling_price, imei (for internal record)
-
-b. INSERT into bill_items with all denormalized unit fields
-
-c. UPDATE phone_units SET status = 'SOLD', updated_at = now()
-
-WHERE id = unitId AND status = 'AVAILABLE'
-
-d. UPDATE products SET available_unit_count = available_unit_count - 1,
-
-version = version + 1, updated_at = now()
-
-WHERE id = productId
-
-e. INSERT into stock_movements (type = 'UNIT_SOLD',
-
-quantity_change = -1, unit_status_before = 'AVAILABLE',
-
-unit_status_after = 'SOLD', reference_type = 'BILL',
-
-reference_id = bill.id)
 ↓
 
 8. For each generic item:
+   a. INSERT into bill_items (product_name, product_sku denormalized)
+   b. UPDATE products SET stock_quantity = stock_quantity - item.quantity
+   c. INSERT into stock_movements (type = 'GENERIC_SALE', ...)
 
-a. INSERT into bill_items (product_name, product_sku denormalized)
-
-b. UPDATE products SET stock_quantity = stock_quantity - item.quantity
-
-c. INSERT into stock_movements (type = 'GENERIC_SALE', ...)
 ↓
 
 9. INSERT into audit_logs (action = 'BILL_CREATED', entity_type = 'BILL',
+   entity_id = bill.id)
 
-entity_id = bill.id)
 ↓
 
 COMMIT TRANSACTION
+
 ↓
 
 10. revalidatePath for all affected product public pages (post-commit,
-
-non-transactional — failure here does not affect bill validity)
+    non-transactional — failure here does not affect bill validity)
 
 ### Failure Handling
 
@@ -207,13 +187,14 @@ phone unit. The `SELECT ... FOR UPDATE` at step 1 ensures:
 - The second transaction blocks until the first commits or rolls back.
 - After the first commits (unit is now SOLD), the second reads status = SOLD.
 - The second transaction fails validation at step 2 with UNIT_NOT_AVAILABLE.
-- Staff receives a clear message and can remove the unavailable unit from the bill.
+- Staff receives a clear message and can select an alternative available unit.
 
 This is the correct behavior. One unit cannot be sold twice.
 
 ---
 
 ## Adding a New Phone Unit (Restock)
+
 Admin opens "Add Unit" form
 
 ↓
@@ -227,19 +208,12 @@ Submits
 ↓
 
 BEGIN TRANSACTION
-
-a. INSERT into phone_units (status = 'AVAILABLE')
-
-b. UPDATE products SET available_unit_count = available_unit_count + 1,
-
-version = version + 1
-
-c. INSERT into stock_movements (type = 'UNIT_ADDED', quantity_change = +1,
-
-unit_status_before = NULL, unit_status_after = 'AVAILABLE')
-
-d. INSERT into audit_logs (action = 'UNIT_ADDED')
-
+  a. INSERT into phone_units (status = 'AVAILABLE', deleted_at = NULL)
+  b. UPDATE products SET available_unit_count = available_unit_count + 1,
+     version = version + 1
+  c. INSERT into stock_movements (type = 'UNIT_ADDED', quantity_change = +1,
+     unit_status_before = NULL, unit_status_after = 'AVAILABLE')
+  d. INSERT into audit_logs (action = 'UNIT_ADDED')
 COMMIT
 
 ↓
@@ -253,30 +227,23 @@ Product becomes visible (or stays visible with one more unit)
 ---
 
 ## Unit Status Change (Admin Action)
+
 Admin clicks "Mark as In Repair" on unit X
 
 ↓
 
 BEGIN TRANSACTION
-
-a. Validate: current status must be AVAILABLE (to go to IN_REPAIR)
-
-b. UPDATE phone_units SET status = 'IN_REPAIR'
-
-c. UPDATE products SET available_unit_count = available_unit_count - 1
-
-(only if previous status was AVAILABLE)
-
-d. INSERT into stock_movements (type = 'UNIT_STATUS_CHANGED', ...)
-
-e. INSERT into audit_logs (action = 'UNIT_STATUS_CHANGED')
-
+  a. Validate: current status must be AVAILABLE (to go to IN_REPAIR) and deleted_at IS NULL
+  b. UPDATE phone_units SET status = 'IN_REPAIR' WHERE id = X AND deleted_at IS NULL
+  c. UPDATE products SET available_unit_count = available_unit_count - 1
+     (only if previous status was AVAILABLE)
+  d. INSERT into stock_movements (type = 'UNIT_STATUS_CHANGED', ...)
+  e. INSERT into audit_logs (action = 'UNIT_STATUS_CHANGED')
 COMMIT
 
 ↓
 
 If available_unit_count is now 0:
-
 revalidatePath for product public page (will disappear from catalog)
 
 ---
@@ -305,7 +272,7 @@ approach applies:
 
 ## Soft Delete Flow
 
-Soft-deleting a product:
+### Soft-Deleting a Product
 1. Sets `deleted_at = now()`.
 2. Product immediately excluded from all public queries.
 3. Product visible in admin with "Deleted" badge.
@@ -313,7 +280,14 @@ Soft-deleting a product:
 5. All bills referencing this product's units remain intact.
 6. Product can be restored (set deleted_at to NULL).
 
-Hard delete (SUPER_ADMIN only):
+### Soft-Deleting a Phone Unit
+1. Sets `deleted_at = now()` on the phone unit.
+2. If the deleted unit's status was `AVAILABLE`, decrement `available_unit_count` on the parent product by 1 within the same database transaction.
+3. The unit is immediately excluded from all public pages, billing searches, and active admin tables.
+4. A `UNIT_DELETED` stock movement and audit log are created.
+5. The unit record remains in the database to preserve referential integrity of bills that reference it.
+
+### Hard Delete (SUPER_ADMIN only)
 - Blocked if any bill_items reference units of this product.
 - If no billing history: delete product_images, phone_units, stock_movements,
   then the product. Also delete Cloudinary files.
@@ -327,19 +301,20 @@ about a specific unit. The link is generated server-side (or client-side as
 a utility) using the shop's WhatsApp number from system_config.
 
 Link format:
-https://wa.me/{whatsapp_number}?text={encoded_message}
+`https://wa.me/{whatsapp_number}?text={encoded_message}`
 
 Message template for a specific unit:
+```
 Hi, I'm interested in the {product_name} —
-
 Grade {grade}, {storage}, {color}, ₹{selling_price}.
-
 Is it still available?
+```
 
 Message template for a product (no specific unit):
+```
 Hi, I'm interested in the {product_name}.
-
 Can you let me know what's available?
+```
 
 The `{whatsapp_number}` is read from `system_config.whatsapp_number` and
 must be in the format `91XXXXXXXXXX` (no plus sign, no spaces).

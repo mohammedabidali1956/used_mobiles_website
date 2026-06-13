@@ -133,7 +133,8 @@ updated_by            UUID NOT NULL REFERENCES users(id)
 Notes:
 - `is_unit_tracked = true` (default): Inventory is managed through `phone_units`.
   `available_unit_count` is the count of phone_units with status = 'AVAILABLE'
-  for this product. Maintained within transactions; never manually edited.
+  and deleted_at IS NULL for this product. Maintained within transactions;
+  never manually edited.
 - `is_unit_tracked = false`: Used for generic accessories. `stock_quantity` is
   manually managed by admin. `available_unit_count` is ignored.
 - `base_price`: Starting/minimum price for display purposes. Individual units
@@ -147,23 +148,14 @@ Notes:
 
 Computed public visibility rule (applied in queries):
 publicly_visible =
-
 deleted_at IS NULL
-
 AND is_listed = true
-
 AND (
-
 (is_unit_tracked = true  AND available_unit_count > 0)
-
 OR
-
 (is_unit_tracked = false AND stock_quantity > 0)
-
 OR
-
 visibility_override = true
-
 )
 
 Indexes:
@@ -198,6 +190,7 @@ status                    TEXT NOT NULL DEFAULT 'AVAILABLE'
 admin_notes               TEXT NULL
 created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+deleted_at                TIMESTAMPTZ NULL
 created_by                UUID NOT NULL REFERENCES users(id)
 updated_by                UUID NOT NULL REFERENCES users(id)
 ```
@@ -219,6 +212,8 @@ Notes:
   is set exclusively by the billing transaction — never manually.
 - `status = 'IN_REPAIR'`: Unit is currently being repaired and cannot be sold.
 - `status = 'DEFECTIVE'`: Unit is defective. Cannot be sold.
+- `deleted_at`: If not NULL, the phone unit has been soft-deleted and is excluded from
+  all public catalogs, billing searches, and active admin tables.
 
 Status transition rules (enforced at application level):
 - ANY → AVAILABLE: allowed by admin (except from SOLD)
@@ -228,8 +223,9 @@ Status transition rules (enforced at application level):
 - SOLD → * : not allowed through UI (requires SUPER_ADMIN intervention)
 
 Indexes:
-- `(product_id)`, `(sku)`, `(status)`, `(product_id, status)` — critical for count queries
-- `(imei)` — for admin IMEI lookup (partial index on non-null values)
+- `(product_id)`, `(sku)`, `(status)`, `(deleted_at)`
+- `(product_id, status, deleted_at)` — critical for counting active inventory
+- `(imei)` — for admin IMEI lookup (partial index on non-null and non-deleted values)
 
 ---
 
@@ -315,13 +311,14 @@ id                  UUID PRIMARY KEY DEFAULT gen_random_uuid()
 product_id          UUID NOT NULL REFERENCES products(id)
 phone_unit_id       UUID NULL REFERENCES phone_units(id)
 movement_type       TEXT NOT NULL CHECK (movement_type IN (
-                      'UNIT_ADDED',
-                      'UNIT_SOLD',
-                      'UNIT_STATUS_CHANGED',
-                      'GENERIC_SALE',
-                      'GENERIC_RESTOCK',
-                      'GENERIC_ADJUSTMENT'
-                    ))
+                       'UNIT_ADDED',
+                       'UNIT_SOLD',
+                       'UNIT_STATUS_CHANGED',
+                       'UNIT_DELETED',
+                       'GENERIC_SALE',
+                       'GENERIC_RESTOCK',
+                       'GENERIC_ADJUSTMENT'
+                     ))
 quantity_change     INTEGER NOT NULL
 quantity_before     INTEGER NOT NULL
 quantity_after      INTEGER NOT NULL
@@ -347,6 +344,7 @@ Notes:
   - `UNIT_ADDED`: A new phone unit was created with status AVAILABLE.
   - `UNIT_SOLD`: A unit was sold through billing (status AVAILABLE → SOLD).
   - `UNIT_STATUS_CHANGED`: Admin changed unit status (e.g., AVAILABLE → IN_REPAIR).
+  - `UNIT_DELETED`: A unit was soft-deleted.
   - `GENERIC_SALE`: A generic product (non-unit-tracked) was billed.
   - `GENERIC_RESTOCK`: Admin added generic product stock.
   - `GENERIC_ADJUSTMENT`: Admin manually adjusted generic product stock.
@@ -371,7 +369,7 @@ created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 Notes:
 - Append-only. No updates or deletes.
 - `action` examples: `PRODUCT_CREATED`, `PRODUCT_UPDATED`, `UNIT_ADDED`,
-  `UNIT_SOLD`, `UNIT_STATUS_CHANGED`, `BILL_CREATED`, `USER_CREATED`,
+  `UNIT_SOLD`, `UNIT_STATUS_CHANGED`, `UNIT_DELETED`, `BILL_CREATED`, `USER_CREATED`,
   `USER_DEACTIVATED`.
 - Sensitive fields (`purchase_price`, `password_hash`, `imei`) are excluded
   from `old_data` and `new_data` snapshots.
@@ -408,6 +406,31 @@ Notes:
   `https://wa.me/{whatsapp_number}?text=...`
 - `show_battery_health_public`: controls whether `battery_health` is visible on
   the public product detail page. IMEI is never shown publicly regardless of config.
+
+---
+
+## Data Retention Strategy
+
+To ensure database scalability, performance, and legal compliance, the system adheres to the following data retention policies:
+
+### 1. Bills and Invoice Records (`bills`, `bill_items`)
+* **Retention Period:** Kept **indefinitely** (minimum of 8 years for statutory tax compliance).
+* **Immutability:** Once a record is inserted, updates and deletes are strictly prohibited.
+* **Archiving Strategy:** If table size affects database performance in the future, partitions by calendar year will be implemented, or records older than 5 years will be migrated to a historical data archive.
+
+### 2. Stock Movements (`stock_movements`)
+* **Retention Period:** Kept **indefinitely** for transparency of inventory history.
+* **Immutability:** Append-only structure. Edits and deletes are blocked.
+* **Archiving Strategy:** Movements older than 3 years can be archived to cold storage in compressed format (CSV/Parquet) and purged from the primary transaction database.
+
+### 3. Audit Logs (`audit_logs`)
+* **Retention Period:** Kept for **2 years**.
+* **Immutability:** Append-only structure.
+* **Purging Strategy:** A recurring database cron task purges audit entries older than 2 years at the end of each month.
+
+### 4. Soft-Deleted Entity Records (`categories`, `brands`, `products`, `phone_units`)
+* **Retention Period:** Kept **indefinitely** to guarantee referential integrity of historical bills.
+* **Purging Policy:** Records linked to bills are never hard-deleted. Unlinked soft-deleted records can be hard-deleted by a SUPER_ADMIN.
 
 ---
 

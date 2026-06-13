@@ -124,11 +124,11 @@
 
 ### RISK-B-04: Multiple Staff Billing the Same Last-Unit Product
 **Likelihood:** Low-Medium
-**Impact:** Medium (one transaction fails with INSUFFICIENT_STOCK error)
+**Impact:** Medium (one transaction fails with UNIT_NOT_AVAILABLE error)
 **Mitigation:**
 - Transaction with `SELECT FOR UPDATE` ensures exactly one transaction succeeds.
 - The losing transaction gets a clear error message with the item name.
-- Staff retries with a different quantity or removes the item.
+- Staff removes the sold-out unit and selects another available unit.
 
 **Residual Risk:** Low. Failure is graceful, not silent.
 

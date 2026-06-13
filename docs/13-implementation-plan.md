@@ -33,13 +33,11 @@ Tasks:
 - [ ] Set up Vercel project; connect to GitHub.
 - [ ] Configure all environment variables in Vercel (production and preview).
 - [ ] Set up `.env.local` and `.env.example`.
-- [ ] Write `prisma/schema.prisma` with all tables from `docs/05-DATA-MODEL.md`,
-  including the `phone_units` table and updated `products` table.
+- [ ] Write `prisma/schema.prisma` with all tables from `docs/05-DATA-MODEL.md`, including the `phone_units` table and updated `products` table.
 - [ ] Run `prisma migrate dev --name init`.
 - [ ] Deploy shell to Vercel; verify pipeline.
 
-**Validation:** Blank Next.js app live on Vercel. `prisma studio` shows all
-tables in Neon. `phone_units` table exists with all columns.
+**Validation:** Blank Next.js app live on Vercel. `prisma studio` shows all tables in Neon. `phone_units` table exists with all columns.
 
 ---
 
@@ -48,8 +46,7 @@ tables in Neon. `phone_units` table exists with all columns.
 **Goal:** All tables created; SUPER_ADMIN can log in; routes are protected.
 
 Tasks:
-- [ ] Write `prisma/seed.ts`: SUPER_ADMIN user + all system_config entries
-  including `whatsapp_number`, `show_battery_health_public = false`.
+- [ ] Write `prisma/seed.ts`: SUPER_ADMIN user + all system_config entries including `whatsapp_number`, `show_battery_health_public = false`.
 - [ ] Run seed against Neon.
 - [ ] Install and configure NextAuth.js v5 (`src/lib/auth.ts`).
 - [ ] Build login page and `api/auth/[...nextauth]` route.
@@ -57,8 +54,7 @@ Tasks:
 - [ ] Test login/logout for SUPER_ADMIN.
 - [ ] Test protected route redirects.
 
-**Validation:** SUPER_ADMIN logs in and sees blank `/admin`. Unauthenticated
-access to `/admin` redirects to `/login`.
+**Validation:** SUPER_ADMIN logs in and sees blank `/admin`. Unauthenticated access to `/admin` redirects to `/login`.
 
 ---
 
@@ -72,18 +68,17 @@ Tasks:
 - [ ] Build admin layout with sidebar navigation.
 - [ ] Build Category CRUD (API + service + admin pages).
 - [ ] Build Brand CRUD (API + service + admin pages).
-- [ ] Build Product service (`product.service.ts`): create, read, update,
-  soft-delete, restore, visibility toggle.
+- [ ] Build Product service (`product.service.ts`): create, read, update, soft-delete, restore, visibility toggle.
 - [ ] Build Product API routes (`/api/admin/products/*`).
 - [ ] Build Product list page (table with available_unit_count column).
 - [ ] Build Product create/edit form (no variants section; has is_unit_tracked toggle).
 - [ ] Build Cloudinary image uploader.
 - [ ] Build `phoneUnit.service.ts` with all unit operations:
-  - createUnit (transaction: insert unit + increment product count)
-  - updateUnit
-  - changeUnitStatus (transaction: update status + adjust product count)
-- [ ] Build Phone Unit API routes (`/api/admin/products/[id]/units/*`,
-  `/api/admin/units/[unitId]/*`).
+  - `createUnit` (transaction: insert unit + increment product count)
+  - `updateUnit`
+  - `changeUnitStatus` (transaction: update status + adjust product count)
+  - `softDeleteUnit` (transaction: set deleted_at + decrement product count if status was AVAILABLE)
+- [ ] Build Phone Unit API routes (`/api/admin/products/[id]/units/*`, `/api/admin/units/[unitId]/*`).
 - [ ] Build Phone Unit Form component (tabs: Basic Info, Accessories, Pricing, Notes).
 - [ ] Build Phone Unit Table component with status badges.
 - [ ] Integrate unit table into product detail page (collapsible section).
@@ -99,27 +94,25 @@ Tasks:
 - Check audit_logs: PRODUCT_CREATED, 3× UNIT_ADDED, 1× UNIT_STATUS_CHANGED.
 - Soft delete the product. Verify `deleted_at` is set.
 - Restore it. Verify `deleted_at` is null again.
+- Soft delete a phone unit. Verify `deleted_at` is set and `available_unit_count` on the parent product is decremented.
 
 ---
 
 ## Phase 3: Public Storefront
 
-**Goal:** Professional browse-only website with WhatsApp/call CTAs. Unit-aware
-visibility rules working end-to-end.
+**Goal:** Professional browse-only website with WhatsApp/call CTAs. Unit-aware visibility rules working end-to-end.
 
 Tasks:
 - [ ] Build public layout (navbar, footer, floating WhatsApp button).
 - [ ] Build `GET /api/products` with unit-aware visibility filter and storage filter.
 - [ ] Build `GET /api/products/[slug]` returning product + available units (no IMEI).
 - [ ] Build `GET /api/products/[slug]/units` (for client-side refresh).
-- [ ] Build homepage: hero, how-it-works strip, featured products, categories, brands,
-  shop info section.
+- [ ] Build homepage: hero, how-it-works strip, featured products, categories, brands, shop info section.
 - [ ] Build `WhatsAppButton` component with pre-filled message generation.
 - [ ] Build `UnitCard` component (grade, storage, color, accessories, price, WhatsApp CTA).
 - [ ] Build product catalog page with sidebar filters (including storage filter).
 - [ ] Build `ProductCard` component showing available_unit_count.
-- [ ] Build product detail page: gallery, summary, units section with UnitCards,
-  specifications, related products.
+- [ ] Build product detail page: gallery, summary, units section with UnitCards, specifications, related products.
 - [ ] Build category and brand pages.
 - [ ] Build search results page.
 - [ ] Implement ISR revalidatePath triggers from admin product and unit mutations.
@@ -128,13 +121,10 @@ Tasks:
 - [ ] Build the `useWhatsAppLink` utility function.
 
 **Validation:**
-- Create a product with 2 available units. Verify both unit cards appear on the
-  public product detail page.
-- Mark one unit as SOLD via direct Prisma Studio update (simulating a sale).
-  Wait for ISR (or trigger revalidation). Verify only 1 unit card shows.
+- Create a product with 2 available units. Verify both unit cards appear on the public product detail page.
+- Mark one unit as SOLD via direct Prisma Studio update (simulating a sale). Wait for ISR (or trigger revalidation). Verify only 1 unit card shows.
 - Mark the last unit as SOLD. Verify the product disappears from the public catalog.
-- Set `visibility_override = true` on that product. Verify it reappears publicly
-  with "Out of Stock" shown but no unit cards.
+- Set `visibility_override = true` on that product. Verify it reappears publicly with "Out of Stock" shown but no unit cards.
 - Verify `unit_imei` is never present in any public API response (check Network tab).
 - Check that WhatsApp CTA links point to the configured number.
 - Run Lighthouse on the product detail page (target: 90+).
@@ -147,8 +137,7 @@ Tasks:
 
 Tasks:
 - [ ] Build billing layout.
-- [ ] Build `GET /api/billing/products/search` returning products with their
-  AVAILABLE units (no IMEI, includes battery_health for staff).
+- [ ] Build `GET /api/billing/products/search` returning products with their AVAILABLE units (no IMEI, includes battery_health for staff).
 - [ ] Build `POST /api/billing/bills` with the full unit-based transaction.
 - [ ] Build billing screen UI (two-panel layout).
 - [ ] Build `ProductSearchPanel`: search → product card → expand → unit list.
@@ -168,8 +157,7 @@ Tasks:
 - Verify U1 status = SOLD in Prisma Studio.
 - Verify product X's available_unit_count decremented.
 - Verify product X disappears from public site if available_unit_count = 0.
-- Open two browser tabs. Add same unit to bill in both. Submit both simultaneously.
-  Verify exactly one succeeds; other returns UNIT_NOT_AVAILABLE.
+- Open two browser tabs. Add same unit to bill in both. Submit both simultaneously. Verify exactly one succeeds; other returns UNIT_NOT_AVAILABLE.
 - Verify StockMovement record (type: UNIT_SOLD) exists with before/after status.
 
 ---
@@ -187,16 +175,13 @@ Tasks:
 - [ ] Build Audit Log viewer.
 - [ ] Build CSV export for reports.
 - [ ] Build Admin Dashboard overview (unit counts by status, revenue today).
-- [ ] Build System Settings page (SUPER_ADMIN only; edit system_config including
-  `whatsapp_number` and `show_battery_health_public`).
+- [ ] Build System Settings page (SUPER_ADMIN only; edit system_config including `whatsapp_number` and `show_battery_health_public`).
 
 **Validation:**
 - Create a STAFF user, log in, create a bill. Verify bill in admin bills view.
 - Verify unit status report shows correct counts.
-- Change `whatsapp_number` in settings. Verify WhatsApp links on public site use
-  the new number (after ISR revalidation).
-- Toggle `show_battery_health_public = true`. Verify battery_health appears on
-  public unit cards (after revalidation).
+- Change `whatsapp_number` in settings. Verify WhatsApp links on public site use the new number (after ISR revalidation).
+- Toggle `show_battery_health_public = true`. Verify battery_health appears on public unit cards (after revalidation).
 
 ---
 
@@ -227,10 +212,8 @@ Tasks:
 
 Tasks:
 - [ ] Write unit tests for all service functions (including phoneUnit.service.ts).
-- [ ] Write integration tests: bill creation transaction, unit status changes,
-  concurrent billing of the same unit.
-- [ ] Write Playwright E2E tests for: public browsing, WhatsApp CTA links,
-  admin unit management, billing flow.
+- [ ] Write integration tests: bill creation transaction, unit status changes, concurrent billing of the same unit.
+- [ ] Write Playwright E2E tests for: public browsing, WhatsApp CTA links, admin unit management, billing flow.
 - [ ] Configure GitHub Actions CI pipeline.
 - [ ] Run full deployment checklist from `docs/12-DEPLOYMENT-MODEL.md`.
 - [ ] Seed at least 5 real products with real phone units before handover.

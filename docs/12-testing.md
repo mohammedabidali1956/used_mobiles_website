@@ -41,9 +41,10 @@ The test DB is reset to a known state before each test run.
 
 **What to integration test:**
 - `POST /api/billing/bills`: full transaction (stock decremented, bill created, movements recorded).
-- Concurrent billing: two requests for the same product with stock = 1.
-  Only one should succeed; the other should return INSUFFICIENT_STOCK.
+- Concurrent billing: two requests for the same phone unit with status = AVAILABLE.
+  Only one should succeed; the other should return UNIT_NOT_AVAILABLE.
 - `DELETE /api/admin/products/[id]`: verify soft delete, public query returns nothing.
+- `DELETE /api/admin/units/[unitId]`: verify unit soft delete, count update, and public query exclusion.
 - `PATCH /api/admin/products/[id]/visibility`: verify public query reflects change.
 - Authentication: unauthorized routes return 401/403.
 - Manual stock adjustment: movement record created, stock updated correctly.
@@ -63,7 +64,8 @@ Test the full browser flow against a live preview deployment.
 
 2. **Admin flow:**
    - Login with ADMIN credentials.
-   - Create a product (fill form, upload image, set stock = 5, publish).
+   - Create a product (fill form, upload image, publish).
+   - Add 5 phone units to the product.
    - Verify product appears on public site.
    - Unlist the product.
    - Verify product disappears from public site.
@@ -73,12 +75,12 @@ Test the full browser flow against a live preview deployment.
 3. **Billing flow:**
    - Login with STAFF credentials.
    - Search for a product on billing screen.
-   - Add it to bill (quantity 2).
+   - Add two different available units (U1 and U2) to the bill (or add a generic accessory with quantity 2).
    - Set payment method to Cash.
    - Create bill.
    - Verify receipt shows correct data.
-   - Verify stock decremented by 2 (check admin stock panel).
-   - Attempt to create another bill exceeding remaining stock.
+   - Verify stock decremented appropriately (U1 and U2 are marked SOLD and unavailable, or generic accessory stock decremented by 2).
+   - Attempt to create another bill containing one of the sold units.
    - Verify it is rejected.
 
 4. **Role enforcement:**

@@ -56,18 +56,13 @@ Never returns: purchase_price for any unit, internal_notes, imei, admin_notes.
 
 Visibility filter applied:
 deleted_at IS NULL
-
 AND is_listed = true
-
 AND (
-
-(is_unit_tracked = true  AND available_unit_count > 0)
-
-OR (is_unit_tracked = false AND stock_quantity > 0)
-
-OR visibility_override = true
-
+  (is_unit_tracked = true  AND available_unit_count > 0)
+  OR (is_unit_tracked = false AND stock_quantity > 0)
+  OR visibility_override = true
 )
+
 ---
 
 ### GET /api/products/[slug]
@@ -84,7 +79,7 @@ Includes:
 - Available units (see below)
 
 **Available units** embedded in response:
-Each unit in the `units` array includes: id, sku, grade, storage, color,
+Each unit in the `units` array is active (`deleted_at IS NULL`) and includes: id, sku, grade, storage, color,
 condition, has_box, has_charger, has_earphones, has_original_accessories,
 warranty_info, selling_price (or product base_price if null), and
 battery_health (only if system_config `show_battery_health_public = true`).
@@ -95,7 +90,7 @@ configuration.
 ---
 
 ### GET /api/products/[slug]/units
-Returns all AVAILABLE units for a product, with the same field set as the
+Returns all AVAILABLE and active (`deleted_at IS NULL`) units for a product, with the same field set as the
 units embedded in the product detail response. Used for dynamic refresh of
 unit availability on the public product detail page.
 
@@ -170,8 +165,8 @@ Body: `{ imageIds: string[] }`.
 
 #### GET /api/admin/products/[id]/units
 Returns all phone units for a specific product.
-Fields include: all unit fields including imei, purchase_price, admin_notes.
-Filterable by: status, grade, storage.
+Fields include: all unit fields including imei, purchase_price, admin_notes, deleted_at.
+Filterable by: status, grade, storage, isDeleted.
 
 #### POST /api/admin/products/[id]/units
 Add a new phone unit.
@@ -208,10 +203,21 @@ If status changes to or from AVAILABLE:
 3. Creates StockMovement (type: UNIT_STATUS_CHANGED).
 4. Writes UNIT_STATUS_CHANGED audit event.
 
+#### DELETE /api/admin/units/[unitId]
+Soft delete a phone unit.
+On success:
+1. Sets `deleted_at = now()`.
+2. If the unit status was AVAILABLE, decrements product.available_unit_count within a transaction.
+3. Triggers public page revalidation.
+4. Creates StockMovement (type: UNIT_DELETED).
+5. Writes UNIT_DELETED audit event.
+
+Returns success status.
+
 #### GET /api/admin/units
 Cross-product unit search.
 Query params: `q` (search sku or imei), `status`, `productId`, `grade`,
-`storage`, `page`, `pageSize`.
+`storage`, `page`, `pageSize`, `isDeleted`.
 
 ---
 
@@ -288,7 +294,7 @@ Query params: `q` (min 2 chars), `limit` (default 10).
 Returns matching products (including unlisted ones — staff can bill any
 product regardless of public listing status). For each product:
 - Product info: id, name, sku, brand, base_price, primary_image_url
-- `available_units`: list of AVAILABLE units for that product, each with:
+- `available_units`: list of AVAILABLE, active (`deleted_at IS NULL`) units for that product, each with:
   sku, grade, storage, color, condition, has_box, has_charger, has_earphones,
   selling_price, battery_health (always returned to staff regardless of public config)
 - Never returns: imei, purchase_price, admin_notes
