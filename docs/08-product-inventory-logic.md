@@ -1,95 +1,101 @@
-# docs/08-PRODUCT-INVENTORY-LOGIC.md
-
 # Product and Inventory Logic
 
-This document defines the core business rules governing product visibility,
-stock management, and the billing transaction flow. These rules are the most
-critical part of the system and must be implemented exactly as described.
+This document defines the core business rules for product visibility, phone
+unit lifecycle, and the billing transaction. These rules govern all inventory
+decisions and must be implemented exactly as described.
 
 ---
 
-## Product Visibility Decision Tree
+## Inventory Model: Unit-Level Tracking
 
-A product is **publicly visible** (shown on the public website) when ALL of
-the following conditions are simultaneously true:
-deleted_at IS NULL           (product has not been soft or hard deleted)
-is_listed = true             (admin has explicitly listed the product)
-stock_quantity > 0           (product has available stock)
+Used phones are unique items. Each phone is a `phone_unit` with its own identity.
+The inventory system tracks each unit individually through its lifecycle:
+UNIT CREATED (status = AVAILABLE)
 
-— OR —
+↓
 
-visibility_override = true   (admin overrides zero-stock hiding)
+Unit is publicly visible (as part of its parent product)
 
+↓
 
-Expressed as a single boolean:
-publicly_visible =
+Staff selects unit in billing panel → bill created → status = SOLD
 
-(deleted_at IS NULL)
+↓
 
-AND (is_listed = true)
+Unit is permanently sold (not reusable unless reversed by SUPER_ADMIN)
 
-AND (stock_quantity > 0 OR visibility_override = true)
+Alternative paths:
+AVAILABLE → IN_REPAIR  (admin action — unit taken for repair)
 
-### Visibility State Matrix
+IN_REPAIR → AVAILABLE  (admin action — repair complete)
 
-| is_listed | stock_quantity | visibility_override | deleted_at | Publicly Visible? |
-|-----------|----------------|---------------------|------------|-------------------|
-| true      | > 0            | any                 | NULL       | YES               |
-| true      | 0              | false               | NULL       | NO (out of stock) |
-| true      | 0              | true                | NULL       | YES (override)    |
-| false     | any            | any                 | NULL       | NO (unlisted)     |
-| any       | any            | any                 | NOT NULL   | NO (deleted)      |
+AVAILABLE → DEFECTIVE  (admin action — unit found defective)
 
-### Why This Is Query-Based, Not Flag-Based
+DEFECTIVE → AVAILABLE  (admin action — unit repaired or re-graded)
 
-The visibility is computed from the combination of fields in every query —
-it is not stored as a single `is_public` boolean. This prevents the following
-class of bugs:
-- Admin marks product as listed, forgets stock is zero, product appears publicly
-  but cannot actually be sold.
-- Billing reduces stock to zero, flag-update step fails, product stays shown.
+No path leads back from SOLD through the standard application UI. Reversals
+(e.g., customer returns) are a v2 feature.
 
-By computing visibility in the WHERE clause, the database is always consistent.
-
-### The Public Catalog Query (Simplified)
-```sql
-SELECT *
-FROM products
-WHERE deleted_at IS NULL
-  AND is_listed = true
-  AND (stock_quantity > 0 OR visibility_override = true)
-ORDER BY created_at DESC
-LIMIT :pageSize OFFSET :offset;
-```
+Generic accessories and non-unit-tracked products use the traditional
+`stock_quantity` approach from the original design.
 
 ---
 
-## Stock Quantity Rules
+## Product Visibility Decision
 
-1. `stock_quantity` is always ≥ 0 (enforced by DB CHECK constraint).
-2. Stock can only be decreased through billing (SALE movement) or manual
-   adjustment (MANUAL_ADJUSTMENT movement).
-3. Stock can only be increased through manual restock (RESTOCK movement).
-4. Every stock change produces a StockMovement record immediately.
-5. StockMovement records are append-only — they are never updated or deleted.
+A product is **publicly visible** when ALL of the following are true:
+deleted_at IS NULL
 
-### Variant Stock vs. Product Stock
-- If a product has active variants, the product's `stock_quantity` represents
-  the total stock across all variants. This total is maintained by the
-  application when variants are created, updated, or sold.
-- If a product has no variants, its `stock_quantity` is used directly.
-- The billing screen shows per-variant stock when variants exist.
+AND is_listed = true
+
+AND (
+
+CASE
+
+WHEN is_unit_tracked = true THEN available_unit_count > 0
+
+WHEN is_unit_tracked = false THEN stock_quantity > 0
+
+END
+
+OR visibility_override = true
+
+)
+
+### Visibility State Examples
+
+| is_listed | is_unit_tracked | available_unit_count | visibility_override | deleted_at | Visible? |
+|-----------|-----------------|----------------------|---------------------|------------|----------|
+| true      | true            | 3                    | false               | NULL       | YES      |
+| true      | true            | 0                    | false               | NULL       | NO       |
+| true      | true            | 0                    | true                | NULL       | YES (override) |
+| false     | any             | any                  | any                 | NULL       | NO (unlisted) |
+| any       | any             | any                  | any                 | NOT NULL   | NO (deleted)  |
+| true      | false           | —                    | false               | NULL       | YES (if stock_quantity > 0) |
+
+### Why available_unit_count Is Maintained, Not Computed
+
+`available_unit_count` on the products table is maintained by the application
+(incremented/decremented within transactions) rather than computed at query time.
+This avoids an expensive subquery (`SELECT COUNT(*) FROM phone_units WHERE ...`)
+on every public catalog query. The tradeoff is that this count must be kept in
+sync through careful transactional discipline — every status change that adds or
+removes a unit from the AVAILABLE pool must update this count in the same
+transaction.
+
+If drift is detected (count does not match actual available units), an admin
+reconciliation endpoint can recompute it: `POST /api/admin/products/[id]/reconcile-count`.
 
 ---
 
-## Billing Transaction Flow
+## Billing Transaction Flow (Unit-Tracked Products)
 
-This is the most critical operation in the system. It must be atomic.
+This is the most critical operation in the system. It is atomic.
 
 ### Pre-Conditions
 - Staff is authenticated (STAFF role or above).
 - Bill has at least one item.
-- Each item has quantity ≥ 1.
+- Each unit-tracked item references a specific `phone_unit_id`.
 - Payment method is selected.
 
 ### Transaction Steps
@@ -97,163 +103,243 @@ BEGIN TRANSACTION
 
 ↓
 
-Lock all product/variant rows involved in this bill
+For each unit-tracked item in the bill:
 
-(SELECT ... FOR UPDATE on each product/variant in the bill items)
+Lock the phone_unit row:
+
+SELECT id, status FROM phone_units WHERE id = $unitId FOR UPDATE
 
 ↓
-Validate stock for each item:
 
-for each item in bill.items:
+2. Validate each locked unit:
 
-available_stock = (product or variant).stock_quantity
-
-if available_stock < item.quantity:
+if unit.status ≠ 'AVAILABLE':
 
 ROLLBACK
 
-RETURN error: INSUFFICIENT_STOCK for item (productId, available_stock)
-
+RETURN error: UNIT_NOT_AVAILABLE { unitId, unitSku, currentStatus }
 ↓
-All items validated. Proceed.
 
+3. For each generic (non-unit-tracked) item:
+
+Lock the product row:
+
+SELECT id, stock_quantity FROM products WHERE id = $productId FOR UPDATE
+
+if product.stock_quantity < item.quantity:
+
+ROLLBACK
+
+RETURN error: INSUFFICIENT_STOCK { productId, available }
 ↓
-Generate bill_number (BILL-YYYYMMDD-XXXX format, using a sequence or
 
-counting today's bills +1)
-
+4. All validations passed. Proceed.
 ↓
-INSERT into bills (all bill header fields)
 
+5. Generate bill_number (BILL-YYYYMMDD-XXXX, counting today's bills +1)
 ↓
-For each item in bill.items:
 
-a. INSERT into bill_items (denormalize product name and SKU at this moment)
-
-b. UPDATE products SET
-
-stock_quantity = stock_quantity - item.quantity,
-
-version = version + 1,
-
-updated_at = now()
-
-WHERE id = item.productId AND version = :expectedVersion
-
-(or update variant if variant_id is set)
-
-c. INSERT into stock_movements (
-
-type = 'SALE',
-
-quantity_change = -item.quantity,
-
-quantity_before = previous stock,
-
-quantity_after = previous stock - item.quantity,
-
-reference_type = 'BILL',
-
-reference_id = bill.id
-
-)
-
+6. INSERT into bills (header fields)
 ↓
-INSERT into audit_logs (action = 'BILL_CREATED', entity_type = 'BILL',
 
-entity_id = bill.id, user_id = staff.id)
+7. For each unit-tracked item:
 
+a. Snapshot unit fields at this moment:
+
+grade, storage, color, condition, has_box, has_charger,
+
+has_earphones, selling_price, imei (for internal record)
+
+b. INSERT into bill_items with all denormalized unit fields
+
+c. UPDATE phone_units SET status = 'SOLD', updated_at = now()
+
+WHERE id = unitId AND status = 'AVAILABLE'
+
+d. UPDATE products SET available_unit_count = available_unit_count - 1,
+
+version = version + 1, updated_at = now()
+
+WHERE id = productId
+
+e. INSERT into stock_movements (type = 'UNIT_SOLD',
+
+quantity_change = -1, unit_status_before = 'AVAILABLE',
+
+unit_status_after = 'SOLD', reference_type = 'BILL',
+
+reference_id = bill.id)
+↓
+
+8. For each generic item:
+
+a. INSERT into bill_items (product_name, product_sku denormalized)
+
+b. UPDATE products SET stock_quantity = stock_quantity - item.quantity
+
+c. INSERT into stock_movements (type = 'GENERIC_SALE', ...)
+↓
+
+9. INSERT into audit_logs (action = 'BILL_CREATED', entity_type = 'BILL',
+
+entity_id = bill.id)
 ↓
 
 COMMIT TRANSACTION
-
 ↓
-Trigger ISR revalidation for affected product pages (after commit)
 
-(This is non-transactional — if it fails, the bill is still valid;
+10. revalidatePath for all affected product public pages (post-commit,
 
-the ISR timer will catch the update anyway)
+non-transactional — failure here does not affect bill validity)
 
+### Failure Handling
 
-### Failure Scenarios and Handling
-
-| Failure Point                   | Action                                                      |
-|---------------------------------|-------------------------------------------------------------|
-| Stock insufficient at step 2    | ROLLBACK; return INSUFFICIENT_STOCK error with details      |
-| DB error during insert at step 5| ROLLBACK; return INTERNAL_ERROR; log to Sentry              |
-| DB error during update at step 6| ROLLBACK; return INTERNAL_ERROR; log to Sentry              |
-| Version mismatch (optimistic lock)| Caught as CONFLICT; retry once or surface to user         |
-| ISR revalidation fails at step 8| Ignore; timer will update the page within revalidation window|
+| Failure Point              | Action                                                     |
+|----------------------------|------------------------------------------------------------|
+| Unit not AVAILABLE (step 2)| ROLLBACK; return UNIT_NOT_AVAILABLE with unit details      |
+| Generic stock low (step 3) | ROLLBACK; return INSUFFICIENT_STOCK with product details   |
+| DB error at any step       | ROLLBACK; return INTERNAL_ERROR; log to Sentry             |
 
 ### Concurrency Safety
 
-Two staff members may simultaneously attempt to bill the same product.
-The `SELECT ... FOR UPDATE` at step 1 ensures:
-- The second transaction blocks until the first completes.
-- After the first commits, the second reads the updated stock.
-- If the second transaction now finds insufficient stock, it rolls back safely.
-- No phantom reads. No double-decrement.
+Two staff at two counter terminals may simultaneously attempt to bill the same
+phone unit. The `SELECT ... FOR UPDATE` at step 1 ensures:
+- The second transaction blocks until the first commits or rolls back.
+- After the first commits (unit is now SOLD), the second reads status = SOLD.
+- The second transaction fails validation at step 2 with UNIT_NOT_AVAILABLE.
+- Staff receives a clear message and can remove the unavailable unit from the bill.
 
-PostgreSQL row-level locking with `FOR UPDATE` is the correct tool here.
-Application-level optimistic locking (version field) is a secondary defense.
+This is the correct behavior. One unit cannot be sold twice.
 
 ---
 
-## Manual Stock Adjustment Flow
+## Adding a New Phone Unit (Restock)
+Admin opens "Add Unit" form
 
-Admin opens Stock Management screen
-Selects product (and variant if applicable)
-Enters: quantity change (+/- integer) and reason text (mandatory)
+↓
+
+Fills in: product, grade, storage, color, condition, accessories, price, etc.
+
+↓
+
 Submits
 
 ↓
 
 BEGIN TRANSACTION
 
-a. Read current stock
+a. INSERT into phone_units (status = 'AVAILABLE')
 
-b. Validate: new stock would not go negative
+b. UPDATE products SET available_unit_count = available_unit_count + 1,
 
-c. UPDATE products SET stock_quantity = stock_quantity + quantityChange
+version = version + 1
 
-d. INSERT into stock_movements (type = 'MANUAL_ADJUSTMENT', ...)
+c. INSERT into stock_movements (type = 'UNIT_ADDED', quantity_change = +1,
 
-e. INSERT into audit_logs (action = 'STOCK_ADJUSTED', ...)
+unit_status_before = NULL, unit_status_after = 'AVAILABLE')
+
+d. INSERT into audit_logs (action = 'UNIT_ADDED')
 
 COMMIT
 
+↓
+
+revalidatePath for product public page
+
+↓
+
+Product becomes visible (or stays visible with one more unit)
 
 ---
 
-## Soft Delete Flow
+## Unit Status Change (Admin Action)
+Admin clicks "Mark as In Repair" on unit X
 
-When an admin soft-deletes a product:
-1. `deleted_at` is set to `now()`.
-2. The product immediately disappears from all public queries.
-3. The product remains visible in admin product list with a "Deleted" badge.
-4. All bills containing this product remain intact (FK to products still valid).
-5. Stock movements for this product remain intact.
-6. The product can be restored by an admin (set deleted_at back to NULL).
+↓
 
-When a SUPER_ADMIN hard-deletes a product:
-1. Verify no bills reference this product. If bills exist, block hard delete.
-2. Delete all product_images records (also delete files from Cloudinary).
-3. Delete all product_variants records.
-4. Delete all stock_movements records.
-5. Delete the product record.
-6. Write audit log entry.
+BEGIN TRANSACTION
 
-Note: Hard delete of a product with billing history is permanently blocked —
-billing records must be preserved for financial integrity.
+a. Validate: current status must be AVAILABLE (to go to IN_REPAIR)
+
+b. UPDATE phone_units SET status = 'IN_REPAIR'
+
+c. UPDATE products SET available_unit_count = available_unit_count - 1
+
+(only if previous status was AVAILABLE)
+
+d. INSERT into stock_movements (type = 'UNIT_STATUS_CHANGED', ...)
+
+e. INSERT into audit_logs (action = 'UNIT_STATUS_CHANGED')
+
+COMMIT
+
+↓
+
+If available_unit_count is now 0:
+
+revalidatePath for product public page (will disappear from catalog)
+
+---
+
+## Generic Product Stock Management (Accessories)
+
+For products with `is_unit_tracked = false`, the original quantity-based
+approach applies:
+- Stock increases through admin manual adjustment (GENERIC_RESTOCK).
+- Stock decreases through billing (GENERIC_SALE).
+- All changes are transactional and create StockMovement records.
+- Public visibility: `stock_quantity > 0 OR visibility_override = true`.
 
 ---
 
 ## Product Listing and Unlisting
 
-- Listing a product: set `is_listed = true`.
-  The product becomes publicly visible if stock > 0 (or visibility_override = true).
-- Unlisting a product: set `is_listed = false`.
-  The product immediately disappears from all public queries.
-  Stock is not affected. Existing bills are not affected.
-- These are direct database toggles, not queued actions.
-  Visibility change takes effect on the next public page request (within ISR window).
+- **List a product**: `is_listed = true`. If units are AVAILABLE (or
+  visibility_override = true), the product immediately appears publicly.
+- **Unlist a product**: `is_listed = false`. Product immediately disappears
+  from all public queries, regardless of how many units are AVAILABLE.
+  Units are not affected; they retain their status.
+- These are direct database toggles with immediate ISR revalidation.
+
+---
+
+## Soft Delete Flow
+
+Soft-deleting a product:
+1. Sets `deleted_at = now()`.
+2. Product immediately excluded from all public queries.
+3. Product visible in admin with "Deleted" badge.
+4. All phone_units for this product retain their records and status.
+5. All bills referencing this product's units remain intact.
+6. Product can be restored (set deleted_at to NULL).
+
+Hard delete (SUPER_ADMIN only):
+- Blocked if any bill_items reference units of this product.
+- If no billing history: delete product_images, phone_units, stock_movements,
+  then the product. Also delete Cloudinary files.
+
+---
+
+## WhatsApp Deep Link Generation
+
+The system uses WhatsApp deep links to enable customers to contact the shop
+about a specific unit. The link is generated server-side (or client-side as
+a utility) using the shop's WhatsApp number from system_config.
+
+Link format:
+https://wa.me/{whatsapp_number}?text={encoded_message}
+
+Message template for a specific unit:
+Hi, I'm interested in the {product_name} —
+
+Grade {grade}, {storage}, {color}, ₹{selling_price}.
+
+Is it still available?
+
+Message template for a product (no specific unit):
+Hi, I'm interested in the {product_name}.
+
+Can you let me know what's available?
+
+The `{whatsapp_number}` is read from `system_config.whatsapp_number` and
+must be in the format `91XXXXXXXXXX` (no plus sign, no spaces).

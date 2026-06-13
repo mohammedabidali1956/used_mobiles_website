@@ -1,27 +1,25 @@
-# docs/06-SYSTEM-ARCHITECTURE.md
-
 # System Architecture
 
 ---
 
 ## Architecture Style
 This is a **full-stack monorepo** using Next.js 14 App Router. All application
-code lives in a single repository. The frontend and backend API co-exist in the
-same Next.js app, deployed together to Vercel. The database is external and
-managed separately on Neon.
+code lives in a single repository. The public website, admin dashboard, and
+billing panel coexist in the same Next.js app deployed to Vercel. The database
+is external on Neon.
 
-This is not a microservices architecture. A monolith-with-clear-boundaries is
-the appropriate choice for a team of this size and a business of this scale.
-Premature service decomposition adds operational overhead without benefit.
+There is no checkout, cart, payment gateway, or order management system.
+The public website is browse-only. All sales happen in person at the counter
+via the billing panel.
 
 ---
 
 ## High-Level Architecture
-┌──────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────┐
 
-│                          INTERNET                                │
+│                        INTERNET                       │
 
-└──────────────────────────┬───────────────────────────────────────┘
+└───────────────────────┬───────────────────────────────┘
 
 │
 
@@ -29,9 +27,9 @@ Premature service decomposition adds operational overhead without benefit.
 
 │     Vercel Edge CDN     │
 
-│  (Static assets, ISR,   │
+│   (ISR cached public    │
 
-│   cached public pages)  │
+│    pages + static)      │
 
 └────────────┬────────────┘
 
@@ -45,57 +43,23 @@ Premature service decomposition adds operational overhead without benefit.
 
 │                         │
 
-│  ┌─────────────────┐    │
+│  /             (public) │
 
-│  │  Public Routes  │    │
+│  /products/*   (public) │
 
-│  │  /              │    │
+│  /categories/* (public) │
 
-│  │  /products      │    │
+│  /brands/*     (public) │
 
-│  │  /products/[s]  │    │
+│  /search       (public) │
 
-│  │  /categories/[s]│    │
+│  /login        (auth)   │
 
-│  │  /brands/[s]    │    │
+│  /admin/*      (admin)  │
 
-│  │  /search        │    │
+│  /billing/*    (staff)  │
 
-│  └─────────────────┘    │
-
-│  ┌─────────────────┐    │
-
-│  │  Auth Routes    │    │
-
-│  │  /login         │    │
-
-│  │  /api/auth/*    │    │
-
-│  └─────────────────┘    │
-
-│  ┌─────────────────┐    │
-
-│  │  Admin Routes   │    │
-
-│  │  /admin/*       │    │
-
-│  └─────────────────┘    │
-
-│  ┌─────────────────┐    │
-
-│  │  Staff Routes   │    │
-
-│  │  /billing/*     │    │
-
-│  └─────────────────┘    │
-
-│  ┌─────────────────┐    │
-
-│  │   API Routes    │    │
-
-│  │  /api/*         │    │
-
-│  └─────────────────┘    │
+│  /api/*        (API)    │
 
 └────────────┬────────────┘
 
@@ -105,48 +69,48 @@ Premature service decomposition adds operational overhead without benefit.
 
 │                 │                  │
 
-┌────────▼───────┐  ┌──────▼──────┐  ┌───────▼──────────┐
+┌─────▼──────┐  ┌───────▼──────┐  ┌───────▼──────┐
 
-│  Neon          │  │ Cloudinary  │  │  Sentry           │
+│    Neon    │  │  Cloudinary  │  │    Sentry    │
 
-│  PostgreSQL    │  │ Image CDN   │  │  Error Tracking   │
+│ PostgreSQL │  │  Image CDN   │  │    Errors    │
 
-│  (Production   │  │             │  │                   │
+└────────────┘  └──────────────┘  └──────────────┘
 
-│   Database)    │  │             │  │                   │
-
-└────────────────┘  └─────────────┘  └──────────────────┘
+**Critical production fact:** Once deployed to Vercel + Neon, the application
+runs entirely in the cloud. The developer's laptop is not part of the
+production infrastructure.
 
 ---
 
 ## Project Directory Structure
-mobilex/
+used-mobile/
 
 ├── prisma/
 
-│   ├── schema.prisma           # Full DB schema
+│   ├── schema.prisma               # Full DB schema including phone_units
 
-│   └── migrations/             # Auto-generated migration files
+│   ├── migrations/                 # Auto-generated migration files
 
-│       └── seed.ts             # Seed script (SUPER_ADMIN + system_config)
+│   └── seed.ts                     # Seed: SUPER_ADMIN + system_config
 
 ├── src/
 
-│   ├── app/                    # Next.js App Router
+│   ├── app/
 
-│   │   ├── (public)/           # Route group: public storefront
+│   │   ├── (public)/               # Public storefront (browse-only)
 
-│   │   │   ├── layout.tsx      # Public layout (header, footer)
+│   │   │   ├── layout.tsx          # Public layout (navbar, footer, WhatsApp FAB)
 
-│   │   │   ├── page.tsx        # Homepage
+│   │   │   ├── page.tsx            # Homepage
 
 │   │   │   ├── products/
 
-│   │   │   │   ├── page.tsx    # Catalog
+│   │   │   │   ├── page.tsx        # Catalog (filtered grid)
 
 │   │   │   │   └── [slug]/
 
-│   │   │   │       └── page.tsx # Product detail
+│   │   │   │       └── page.tsx    # Product detail + units list + contact CTAs
 
 │   │   │   ├── categories/
 
@@ -158,27 +122,35 @@ mobilex/
 
 │   │   │   └── search/page.tsx
 
-│   │   ├── (auth)/             # Route group: authentication
+│   │   ├── (auth)/
 
 │   │   │   └── login/page.tsx
 
-│   │   ├── (admin)/            # Route group: admin panel
+│   │   ├── (admin)/
 
-│   │   │   ├── layout.tsx      # Admin layout (sidebar nav)
+│   │   │   ├── layout.tsx          # Admin layout (sidebar)
 
 │   │   │   └── admin/
 
-│   │   │       ├── page.tsx            # Dashboard
+│   │   │       ├── page.tsx        # Dashboard
 
 │   │   │       ├── products/
 
-│   │   │       │   ├── page.tsx        # Product list
+│   │   │       │   ├── page.tsx
 
-│   │   │       │   ├── new/page.tsx    # Create product
+│   │   │       │   ├── new/page.tsx
 
 │   │   │       │   └── [id]/
 
-│   │   │       │       ├── page.tsx    # View product
+│   │   │       │       ├── page.tsx
+
+│   │   │       │       └── edit/page.tsx
+
+│   │   │       ├── units/
+
+│   │   │       │   ├── page.tsx    # All units (cross-product view)
+
+│   │   │       │   └── [unitId]/
 
 │   │   │       │       └── edit/page.tsx
 
@@ -190,23 +162,23 @@ mobilex/
 
 │   │   │       ├── bills/
 
-│   │   │       ├── stock/
-
 │   │   │       ├── reports/
 
-│   │   │       └── audit-logs/
+│   │   │       ├── audit-logs/
 
-│   │   ├── (billing)/          # Route group: staff billing
+│   │   │       └── settings/       # SUPER_ADMIN system_config editor
 
-│   │   │   ├── layout.tsx      # Billing layout
+│   │   ├── (billing)/
+
+│   │   │   ├── layout.tsx
 
 │   │   │   └── billing/
 
-│   │   │       ├── page.tsx    # Billing screen
+│   │   │       ├── page.tsx        # Billing screen (POS)
 
-│   │   │       └── [id]/page.tsx # Receipt view
+│   │   │       └── [id]/page.tsx   # Receipt view
 
-│   │   └── api/                # API Route handlers
+│   │   └── api/
 
 │   │       ├── auth/
 
@@ -214,13 +186,51 @@ mobilex/
 
 │   │       ├── products/
 
-│   │       │   ├── route.ts
+│   │       │   ├── route.ts                # Public: list products
 
-│   │       │   └── [id]/route.ts
+│   │       │   └── [slug]/
+
+│   │       │       ├── route.ts            # Public: product detail
+
+│   │       │       └── units/route.ts      # Public: available units for product
+
+│   │       ├── search/route.ts
+
+│   │       ├── categories/route.ts
+
+│   │       ├── brands/route.ts
 
 │   │       ├── admin/
 
 │   │       │   ├── products/
+
+│   │       │   │   ├── route.ts
+
+│   │       │   │   └── [id]/
+
+│   │       │   │       ├── route.ts
+
+│   │       │   │       ├── images/route.ts
+
+│   │       │   │       ├── images/reorder/route.ts
+
+│   │       │   │       ├── visibility/route.ts
+
+│   │       │   │       └── units/
+
+│   │       │   │           ├── route.ts    # List / create units for product
+
+│   │       │   │           └── [unitId]/route.ts
+
+│   │       │   ├── units/
+
+│   │       │   │   ├── route.ts            # All units (search, filter)
+
+│   │       │   │   └── [unitId]/
+
+│   │       │   │       ├── route.ts        # Get/Update unit
+
+│   │       │   │       └── status/route.ts # Change unit status
 
 │   │       │   ├── categories/
 
@@ -230,21 +240,23 @@ mobilex/
 
 │   │       │   ├── bills/
 
-│   │       │   ├── stock/
+│   │       │   ├── reports/
 
-│   │       │   └── audit-logs/
+│   │       │   ├── audit-logs/
+
+│   │       │   └── settings/route.ts
 
 │   │       └── billing/
 
-│   │           ├── products/search/route.ts
+│   │           ├── products/search/route.ts  # Returns products + units
 
-│   │           └── bills/route.ts
+│   │           └── bills/route.ts            # Create bill + set units to SOLD
 
 │   ├── components/
 
-│   │   ├── ui/                 # shadcn/ui components (auto-generated)
+│   │   ├── ui/                         # shadcn/ui components
 
-│   │   ├── public/             # Public storefront components
+│   │   ├── public/
 
 │   │   │   ├── ProductCard.tsx
 
@@ -254,43 +266,55 @@ mobilex/
 
 │   │   │   ├── ProductGallery.tsx
 
+│   │   │   ├── UnitCard.tsx            # Individual unit display on product page
+
+│   │   │   ├── WhatsAppButton.tsx      # Reusable WhatsApp CTA
+
 │   │   │   ├── SearchBar.tsx
 
 │   │   │   └── Navbar.tsx
 
-│   │   ├── admin/              # Admin panel components
+│   │   ├── admin/
 
 │   │   │   ├── Sidebar.tsx
 
 │   │   │   ├── ProductForm.tsx
 
+│   │   │   ├── PhoneUnitForm.tsx       # Add/edit phone unit
+
+│   │   │   ├── PhoneUnitTable.tsx      # Unit list in admin
+
 │   │   │   ├── ImageUploader.tsx
 
 │   │   │   ├── DataTable.tsx
 
-│   │   │   └── StockAdjustModal.tsx
+│   │   │   └── UnitStatusModal.tsx     # Change unit status with reason
 
-│   │   └── billing/            # Billing panel components
+│   │   └── billing/
 
 │   │       ├── BillItemList.tsx
 
-│   │       ├── ProductSearchPanel.tsx
+│   │       ├── ProductSearchPanel.tsx  # Search → expand → select unit
+
+│   │       ├── UnitSelector.tsx        # Unit list within a product result
 
 │   │       └── Receipt.tsx
 
 │   ├── lib/
 
-│   │   ├── prisma.ts           # Prisma client singleton
+│   │   ├── prisma.ts
 
-│   │   ├── auth.ts             # NextAuth configuration
+│   │   ├── auth.ts
 
-│   │   ├── cloudinary.ts       # Cloudinary client config
+│   │   ├── cloudinary.ts
 
-│   │   └── utils.ts            # Shared utility functions
+│   │   └── utils.ts
 
-│   ├── services/               # Business logic layer (pure functions)
+│   ├── services/
 
 │   │   ├── product.service.ts
+
+│   │   ├── phoneUnit.service.ts        # All phone unit business logic
 
 │   │   ├── category.service.ts
 
@@ -298,15 +322,15 @@ mobilex/
 
 │   │   ├── billing.service.ts
 
-│   │   ├── stock.service.ts
-
 │   │   ├── user.service.ts
 
 │   │   └── audit.service.ts
 
-│   ├── schemas/                # Zod validation schemas
+│   ├── schemas/
 
 │   │   ├── product.schema.ts
+
+│   │   ├── phoneUnit.schema.ts         # Zod schema for phone unit
 
 │   │   ├── bill.schema.ts
 
@@ -316,35 +340,39 @@ mobilex/
 
 │   │   └── user.schema.ts
 
-│   ├── types/                  # TypeScript type definitions
+│   ├── types/
 
 │   │   ├── index.ts
 
 │   │   ├── product.types.ts
 
+│   │   ├── phoneUnit.types.ts
+
 │   │   ├── billing.types.ts
 
 │   │   └── api.types.ts
 
-│   └── hooks/                  # Client-side React hooks
+│   └── hooks/
 
 │       ├── useProductSearch.ts
 
 │       ├── useBillState.ts
 
-│       └── useDebounce.ts
+│       ├── useDebounce.ts
 
-├── public/                     # Static assets
+│       └── useWhatsAppLink.ts          # Generates WhatsApp deep links
+
+├── public/
 
 │   ├── logo.svg
 
 │   └── placeholder-product.jpg
 
-├── docs/                       # This documentation pack
+├── docs/
 
-├── .env.local                  # Local dev env (gitignored)
+├── .env.local
 
-├── .env.example                # Template for env vars
+├── .env.example
 
 ├── next.config.ts
 
@@ -359,100 +387,96 @@ mobilex/
 ## Layer Responsibilities
 
 ### Route Layer (`app/api/*/route.ts`)
-- Parse and validate incoming request (Zod schema).
-- Extract and verify session/role (NextAuth `getServerSession`).
-- Call the appropriate service function with validated data.
+- Parse and validate request (Zod schema).
+- Check session and role via NextAuth `getServerSession`.
+- Call the appropriate service function.
 - Format and return the response.
-- Never contain business logic.
+- No business logic.
 
 ### Service Layer (`services/*.service.ts`)
-- Contain all business logic.
-- Call Prisma for database operations.
-- Write audit log entries.
-- Handle errors and throw typed errors.
-- Never import from `app/` (no Next.js dependencies).
-- Fully unit testable in isolation.
+- All business logic lives here.
+- `phoneUnit.service.ts` owns all phone unit operations including status
+  transitions and available_unit_count maintenance.
+- `billing.service.ts` owns the atomic bill creation transaction.
+- Fully testable in isolation.
 
 ### Prisma Layer (`lib/prisma.ts`)
-- Single Prisma Client instance shared across the app.
+- Single Prisma Client instance.
 - All DB queries go through this instance.
 
 ### Component Layer (`components/`)
-- React components — display and interaction only.
-- Never call the database directly.
-- Call API routes via `fetch` or server actions.
+- Display and interaction only.
+- No direct DB access.
 
 ---
 
 ## Rendering Strategy
 
-| Route Type          | Rendering Method            | Reason                                    |
-|---------------------|-----------------------------|-------------------------------------------|
-| Public homepage     | ISR (60s revalidation)      | Changes infrequently; CDN-cacheable       |
-| Product catalog     | ISR (60s revalidation)      | Stock changes warrant some freshness      |
-| Product detail      | ISR (30s revalidation)      | More critical to be fresh                 |
-| Category/Brand page | ISR (120s revalidation)     | Infrequent changes                        |
-| Search results      | Server-side render (dynamic)| Query-specific; cannot be cached globally |
-| Admin panel pages   | Server-side render (dynamic)| Real-time data required; no caching       |
-| Billing panel       | Server-side render (dynamic)| Real-time stock required; no caching      |
+| Route                   | Method                      | Reason                                          |
+|-------------------------|-----------------------------|-------------------------------------------------|
+| Public homepage         | ISR (60s revalidation)      | Infrequent changes; CDN-cacheable               |
+| Product catalog         | ISR (60s revalidation)      | Unit availability changes warrant freshness     |
+| Product detail          | ISR (30s revalidation)      | Unit availability critical; on-demand purge     |
+| Category/Brand pages    | ISR (120s revalidation)     | Infrequent changes                              |
+| Search results          | Dynamic (SSR)               | Query-specific; not cacheable globally          |
+| Admin pages             | Dynamic (SSR)               | Real-time data required                         |
+| Billing panel           | Dynamic (SSR)               | Real-time unit availability required            |
 
-Public pages use ISR so they benefit from Vercel's CDN cache while still
-becoming fresh within the revalidation window. On-demand revalidation is
-triggered when admin updates a product, ensuring changes propagate quickly
-without waiting for the timer.
-
----
-
-## Data Flow: Product Update → Public Page Invalidation
-Admin edits product
-
-↓
-
-POST /api/admin/products/[id]
-
-↓
-
-product.service.updateProduct()
-
-↓
-
-Prisma updates database
-
-↓
-
-Call revalidatePath('/products/[slug]')
-
-Call revalidatePath('/products')
-
-Call revalidatePath('/categories/[slug]')
-
-↓
-
-Next.js CDN cache is purged for affected paths
-
-↓
-
-Next public request fetches fresh data from DB
-
-↓
-
-New ISR cache entry written
+On-demand revalidation via `revalidatePath()` is called whenever:
+- A product is updated or listed/unlisted.
+- A phone unit changes from or to AVAILABLE status.
+This ensures the public page reflects unit availability within seconds of an
+admin or billing action.
 
 ---
 
-## Data Flow: Bill Creation → Stock Decrement
+## Data Flow: Unit Sold → Public Page Reflects Zero Availability
+Staff creates bill with unit X
 
-See `docs/08-PRODUCT-INVENTORY-LOGIC.md` for the full transactional flow diagram.
+↓
+
+POST /api/billing/bills
+
+↓
+
+billing.service.createBill() [transaction]
+
+→ PhoneUnit.status AVAILABLE → SOLD
+
+→ Product.available_unit_count -= 1
+
+→ StockMovement created
+
+→ Bill and BillItem created
+
+↓
+
+COMMIT TRANSACTION
+
+↓
+
+revalidatePath('/products/[slug]')
+
+revalidatePath('/products')
+
+↓
+
+Next CDN cache purged for that product
+
+↓
+
+Next public request fetches fresh data
+
+→ available_unit_count = 0
+
+→ product no longer appears in catalog
 
 ---
 
 ## Environment Separation
 
-| Environment | Database        | Vercel Env  | Purpose                            |
-|-------------|-----------------|-------------|------------------------------------|
-| Local dev   | Neon dev branch | —           | Feature development                |
-| Preview     | Neon dev branch | Preview      | PR review, UAT                     |
-| Production  | Neon production | Production   | Live business data                 |
-
-Neon's branch feature allows a complete DB copy for development without
-touching production data.
+| Environment | Database        | Vercel Env | Purpose              |
+|-------------|-----------------|------------|----------------------|
+| Local dev   | Neon dev branch | —          | Feature development  |
+| Preview     | Neon dev branch | Preview    | PR review, UAT       |
+| Production  | Neon production | Production | Live business data   |

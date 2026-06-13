@@ -1,28 +1,31 @@
-# docs/09-UI-UX-DIRECTION.md
-
 # UI/UX Direction
 
 ---
 
 ## Design Principles
 
-1. **Trust through professionalism.** The public site must feel like a premium
-   electronics retailer, not a local classifieds page. Clean layout, high-quality
-   product images, clear pricing.
+1. **Trust through professionalism.** The public site must look like a
+   credible, established phone shop — not a listing board. Clean layout,
+   consistent typography, real product images, clear pricing by unit.
 
-2. **Speed over decoration.** No animation for its own sake. Every interaction
-   must feel instant. Transitions are subtle (< 200ms).
+2. **Drive contact, not cart.** Every product page ends with a WhatsApp or
+   phone call CTA. The site has no cart, no checkout, no payment flow. The
+   goal of every public interaction is to bring the customer through the door
+   or on the phone.
 
-3. **Mobile-first public site.** Most browsing happens on phones. The public
-   site must be excellent on mobile before being optimized for desktop.
+3. **Show what makes each phone different.** Grade, storage, color, accessories
+   included, warranty — these are the details that matter to a used phone buyer.
+   Display them clearly per unit.
 
-4. **Desktop-first admin and billing.** Staff use these on counter PCs.
-   Optimize for keyboard navigation, dense information display, and minimal
-   click paths.
+4. **Mobile-first public site.** Customers browse on phones. Every public page
+   must be excellent on mobile before desktop.
 
-5. **No ambiguity.** Every status (listed/unlisted, in stock/out of stock,
-   deleted) has a clear visual indicator. Admin users must always know the
-   state of every product at a glance.
+5. **Desktop-first admin and billing.** Counter staff use these on PCs.
+   Optimize for minimal clicks, dense information, and fast operation.
+
+6. **No ambiguity in admin.** Every unit has a visible status badge. Every
+   product has a clear visibility indicator. Admin users know the state of
+   every item at a glance.
 
 ---
 
@@ -30,201 +33,387 @@
 
 ### Color Palette
 
-| Token            | Value       | Usage                                   |
-|------------------|-------------|------------------------------------------|
-| `--primary`      | `#0F172A`   | Dark navy — headings, primary buttons    |
-| `--accent`       | `#3B82F6`   | Blue — links, active states, CTAs        |
-| `--success`      | `#22C55E`   | In stock, published, confirmed           |
-| `--warning`      | `#F59E0B`   | Low stock, draft, pending                |
-| `--destructive`  | `#EF4444`   | Out of stock, deleted, error             |
-| `--neutral-50`   | `#F8FAFC`   | Page backgrounds                         |
-| `--neutral-100`  | `#F1F5F9`   | Card backgrounds, table alternating rows |
-| `--neutral-500`  | `#64748B`   | Secondary text, placeholders             |
-| `--neutral-900`  | `#0F172A`   | Primary text                             |
-| `--white`        | `#FFFFFF`   | Card surfaces, modal backgrounds         |
+| Token              | Value       | Usage                                      |
+|--------------------|-------------|---------------------------------------------|
+| `--primary`        | `#0F172A`   | Dark navy — headings, primary buttons       |
+| `--accent`         | `#3B82F6`   | Blue — links, active states, CTAs           |
+| `--whatsapp`       | `#25D366`   | WhatsApp green — WhatsApp buttons only      |
+| `--success`        | `#22C55E`   | Available, published, confirmed             |
+| `--warning`        | `#F59E0B`   | Low units, in repair, draft                 |
+| `--destructive`    | `#EF4444`   | Defective, deleted, error                   |
+| `--sold`           | `#64748B`   | Sold units (muted, not prominent)           |
+| `--neutral-50`     | `#F8FAFC`   | Page backgrounds                            |
+| `--neutral-100`    | `#F1F5F9`   | Card backgrounds                            |
+| `--neutral-500`    | `#64748B`   | Secondary text                              |
+| `--neutral-900`    | `#0F172A`   | Primary text                                |
 
 ### Typography
+- **Headings**: Inter, semi-bold to bold, tight tracking.
+- **Body**: Inter, regular, 16px base, relaxed line-height.
+- **Prices/SKUs**: JetBrains Mono or system mono.
 
-- **Headings**: Inter (or Geist), semi-bold to bold, tight tracking.
-- **Body**: Inter, regular weight, 16px base, relaxed line-height.
-- **Mono** (prices, SKUs, bill numbers): JetBrains Mono or system mono.
-- Type scale: 12/14/16/18/20/24/30/36/48px.
+### Border Radius: Cards `rounded-xl`, Buttons `rounded-lg`, Inputs `rounded-md`, Badges `rounded-full`.
 
-### Spacing
-Tailwind's default 4px grid. All spacing in multiples of 4.
-Card padding: 24px (p-6). Section gaps: 32–48px.
-
-### Border Radius
-- Cards/panels: `rounded-xl` (12px).
-- Buttons: `rounded-lg` (8px).
-- Inputs: `rounded-md` (6px).
-- Chips/badges: `rounded-full`.
-
-### Shadows
-- Cards: `shadow-sm` (subtle, not heavy).
-- Modals: `shadow-2xl`.
-- Dropdowns: `shadow-lg`.
+### Grade Badge Colors
+| Grade | Color      |
+|-------|------------|
+| S     | `#6366F1` purple |
+| A+    | `#22C55E` green  |
+| A     | `#3B82F6` blue   |
+| B     | `#F59E0B` amber  |
+| C     | `#F97316` orange |
 
 ---
 
 ## Public Storefront Pages
 
 ### Homepage (`/`)
-[Fixed Navbar: Logo | Nav links | Search bar | (Login link subtle)]
+[Fixed Navbar: Logo | "Used Mobile" | Nav links | Search | Call Now button]
+[Hero Section: Full width]
 
-[Hero: Full-width banner, headline, CTA button "Browse Phones"]
+Headline: "Quality Used Phones in Hyderabad"
 
-[Featured Products: Section title + 4-column grid (scroll on mobile)]
+Sub: "Browse our inventory online. Call or WhatsApp to enquire. Visit us to buy."
 
-[Shop by Category: 3-4 category cards with images]
+[WhatsApp Us] [Browse Phones] — prominent CTAs
+[How It Works Strip: 3–4 steps]
 
-[Top Brands: Brand logo strip, horizontally scrollable on mobile]
+Browse Our Inventory  2. Contact Us  3. Visit The Store  4. Purchase
 
-[Recently Listed: 4-column product grid]
+[Featured Phones: "Currently Available" — 4-column grid, scroll on mobile]
+[Browse by Category: Category image cards]
+[Top Brands: Horizontally scrollable logo strip]
+[Shop Info Section]
 
-[Footer: Shop info, links, social icons]
+Address: [Full address]
+
+Phone: [phone number] | WhatsApp: [number]
+
+Hours: (if applicable)
+
+[Embedded map or link to Google Maps]
+[Footer: Links, address, social if any]
+
+---
 
 ### Product Catalog (`/products`)
 [Navbar]
 
-[Page header: "All Phones" + result count]
+[Header: "Available Phones" | X phones found]
 
-[Layout: sidebar filters (desktop) / top filter drawer (mobile)]
+[Mobile: Filter toggle button at top]
 
-Sidebar: Category tree, Brand checklist, Condition checkboxes, Price range
+[Desktop: Sidebar filters + main content]
+Sidebar filters:
 
-[Main content: Sort dropdown + Product grid (2 cols mobile, 4 cols desktop)]
+Category (checkboxes)
+Brand (checkboxes, top 8 shown, "Show more" toggle)
+Condition (checkboxes: Like New, Good, Fair, New)
+Storage (checkboxes: 64GB, 128GB, 256GB, 512GB)
+Price range (slider: ₹ min – ₹ max)
 
-[Pagination controls at bottom]
+Main content:
 
-[Footer]
+Sort dropdown | Grid of ProductCards
+ProductCard:
+
+[Product image (primary)]
+
+[Brand name — small, muted]
+
+[Product name — bold]
+
+[Condition badge: "Like New" / "Good" / etc.]
+
+[Storage options: pill chips showing available storages]
+
+[Price: "From ₹X,XXX"]
+
+[Unit count: "X Available" in green badge]
+[Pagination at bottom]
+
+---
 
 ### Product Detail (`/products/[slug]`)
 [Navbar]
 
-[Breadcrumb: Home > Category > Product name]
+[Breadcrumb: Home → Category → Product name]
+[Two-column on desktop, single column mobile]
 
-[Two-column layout on desktop, single column on mobile]
+LEFT: Image gallery
 
-Left: Image gallery (primary + thumbnails)
+- Primary large image
 
-Right:
+- Thumbnail row (click to switch)
+RIGHT: Product summary
 
-Brand name (small, linked)
+- Brand name (small, linked to brand page)
 
-Product name (h1, large)
+- Product name (h1, large)
 
-Condition badge (e.g., "Like New")
+- Description (short paragraph)
 
-Price (large, bold) — Compare-at price struck through if set
+- Starting price: "From ₹X,XXX" (large, bold)
 
-Stock status badge ("In Stock" / "Out of Stock")
+- [X units available] badge (green)
 
-[Variant selector if variants exist: color/storage chips]
+- If 0 units: "Currently Out of Stock" (gray badge)
+--- Contact CTAs (sticky on mobile, inline on desktop) ---
+[WhatsApp Us]  ← green WhatsApp brand button, full width on mobile
+[Call Now]     ← outlined button with phone icon
+---
+[Specifications Section]
 
-[Description (expandable if long)]
+Key-value table from product.specifications JSON:
 
-[Specifications table: key/value pairs from specifications JSON]
+| Display       | 6.1 inch OLED |
 
+| Processor     | A15 Bionic    |
+
+| Network       | 5G            |
+
+| Dual SIM      | Yes           |
+[Available Units Section]
+
+Section title: "Units Available (X)"
+
+Grid of Unit Cards (2 columns on desktop, 1 on mobile):
+Unit Card:
+
+[Grade badge: A+] [Condition: Like New]
+
+[Storage: 128GB]  [Color: Midnight Black]
+
+Accessories: [✓ Box] [✓ Charger] [✗ Earphones]
+
+[Battery: 89%]  ← shown only if show_battery_health_public = true
+
+[₹16,500] (large, bold)
+
+[WhatsApp About This Unit] ← pre-fills message with unit details
+
+[Call About This Unit]
+If 0 units available:
+
+"All units currently sold. Contact us to check on availability."
+
+[WhatsApp Us] [Call Now]
+[Product Description (full)]
 [Related Products: "You Might Also Like" — 4-column grid]
 
 [Footer]
 
-### Search Results (`/search?q=...`)
-[Navbar with search bar pre-filled]
+### WhatsApp Button Behavior
 
-[Results header: 'X results for "query"']
+Two types of WhatsApp CTA:
+1. **Product-level**: "WhatsApp Us About This Phone"
+   Pre-filled message: "Hi, I'm interested in the {product_name}. What's available?"
 
-[Product grid (same as catalog) with active filters strip]
+2. **Unit-level**: "WhatsApp About This Unit"
+   Pre-filled message: "Hi, I'm interested in the {product_name} — Grade {grade},
+   {storage}, {color}, ₹{price}. Is it still available?"
 
-[Empty state: "No phones found for..." + suggestions]
+Link format: `https://wa.me/{whatsapp_number}?text={encodeURIComponent(message)}`
+
+Both link to `system_config.whatsapp_number`.
+
+### Floating WhatsApp Button (All Pages)
+A fixed floating button in the bottom-right corner of every public page:
+- WhatsApp icon in brand green (`#25D366`)
+- Links to shop WhatsApp with a generic "Hi, I'd like to know more about your phones."
+- Visible on all public pages; hidden in admin and billing panels.
 
 ---
 
 ## Admin Panel UI
 
 ### Layout
-[Top bar: Logo | Page title | User menu (name, role, logout)]
+[Top bar: Logo | "Used Mobile Admin" | User name/role | Logout]
 
-[Left sidebar: Navigation links, collapsible on narrow screens]
+[Left sidebar: Dark navy background]
 
 Dashboard
-Products (expanded: All Products, Add New)
+Products
+
+└ All Products
+
+└ Add Product
+Phone Units
+
+└ All Units
 Categories
 Brands
-Stock Management
-Bills
+Bills & Sales
 Reports
 Users
 Audit Log
 Settings (SUPER_ADMIN only)
 
-[Main content area]
+[Main content area: white background]
 
-
-### Admin Color Overrides
-Admin uses a slightly different neutral palette (white/gray) to distinguish it
-visually from the public site. The sidebar uses `--primary` dark navy as its
-background with white text.
 
 ### Product List Table
-Columns: [Thumbnail 40px] [Name + SKU] [Brand] [Category] [Condition]
+Columns:
 
-[Price] [Stock] [Listed toggle] [Visibility badge] [Actions: Edit, Delete]
+[Thumb] | [Name + SKU] | [Brand] | [Category] | [Available Units] |
 
+[Starting Price] | [Listed Toggle] | [Visibility Badge] | [Actions]
+Visibility badges:
+
+"Published"   → green  (listed + has available units)
+
+"Out of Stock" → amber (listed + 0 units, no override)
+
+"Override"    → purple (listed + 0 units + override active)
+
+"Draft"       → gray   (not listed)
+
+"Deleted"     → red    (soft deleted)
+
+### Phone Unit Table (within product or standalone)
+Columns:
+
+[Unit SKU] | [Grade] | [Storage] | [Color] | [Condition] |
+
+[Box] | [Charger] | [Battery] | [Price] | [Status] | [Actions]
 Status badges:
 
-Listed, In Stock → green badge "Published"
-Listed, Zero Stock → yellow badge "Out of Stock"
-Unlisted → gray badge "Draft"
-Deleted → red badge "Deleted"
-visibility_override → purple badge "Override"
+"Available"  → green
+
+"Sold"       → muted gray
+
+"In Repair"  → amber
+
+"Defective"  → red
+
+### Phone Unit Form
+Tabs: Basic Info | Accessories & Extras | Pricing | Admin Notes
+Basic Info:
+
+Unit SKU (auto-filled or manual)
+IMEI (optional, marked "Private — never shown publicly")
+Storage selector (64GB / 128GB / 256GB / 512GB / Other)
+Color input
+Condition selector
+Grade selector (visual buttons: S / A+ / A / B / C with color indicators)
+Battery health slider (0–100%)
+
+Accessories:
+
+Has Original Box (toggle)
+Has Charger (toggle)
+Has Earphones (toggle)
+Has Original Accessories (toggle)
+Warranty info (text: e.g., "30 days store warranty")
+
+Pricing:
+
+Selling Price (leave blank to use product base price)
+Purchase Price (admin-only, shown with a lock icon)
+
+Admin Notes:
+
+Internal notes textarea
 
 
-### Product Form
-- Sticky "Save" button area at bottom.
-- Form is divided into tabs or sections: Basic Info | Images | Variants | Pricing & Stock | Visibility | Advanced.
-- Live slug preview as name is typed.
-- Image uploader with drag-and-drop, reorder handles, primary selector.
+---
 
-### Billing Screen Layout (Optimized for Speed)
-[Fixed top bar: "New Bill" title | Staff name | Time]
-
+## Billing Screen (Staff Panel)
+[Fixed top bar: "New Bill" | Staff: [name] | [time]]
 [Two-panel layout]
+RIGHT PANEL (~60%): Product + Unit Search
 
-LEFT PANEL (bill summary, ~40% width):
+[Search input — auto-focused, large, prominent]
 
-- Bill items list: name, quantity controls (- qty +), unit price, line total, delete row
+[Search results: product cards]
+Product Card in Search Results:
+  [Thumb] [Name] [Brand] [X units available]
+  [v Expand to see units]
 
-- Subtotal line
+Expanded Unit List:
+  Unit Row:
+    [Grade badge] [Storage] [Color] [Has Box icon] [Has Charger icon]
+    [₹Price] [+ Add to Bill]
+  (All AVAILABLE units shown, other statuses greyed out)
+LEFT PANEL (~40%): Bill Summary
 
-- Bill discount input
+Bill Items:
 
-- Total (large, bold)
+Each item row: [Unit SKU] [Grade/Storage/Color] [₹Price] [Discount input] [× Remove]
 
-- Payment method selector (4 buttons: Cash / Card / Transfer / Other)
+(For generic accessories: quantity controls shown)
+Subtotal line
+Bill Discount input (₹)
+Total (large, bold, prominent)
 
-- Customer name input (optional)
+Payment Method (4 buttons): Cash | Card | Transfer | Other
 
-- Customer phone input (optional)
+Customer Name (optional)
+Customer Phone (optional)
+Notes (optional)
 
-- Notes input (optional)
+[CREATE BILL] — large, full width, primary color
 
-- [CREATE BILL] button — large, primary color, full width
+### Billing UX Rules
+- Search input auto-focuses on page load and after each successful bill.
+- The "+ Add" button on a unit must be large enough to tap on a touchscreen monitor.
+- Once a unit is added to the bill, it is visually greyed out in the search
+  results with a "Added to Bill" badge — but it is NOT removed from the system
+  until the bill is confirmed.
+- If a unit becomes SOLD (by another terminal) between the time it appears in
+  search and the bill is submitted, the bill is rejected with a clear error
+  identifying which unit is no longer available.
 
-RIGHT PANEL (product search, ~60% width):
+---
 
-- Search input (auto-focused on page load)
+## Receipt Print Layout
+[Shop Name: Used Mobile]
 
-- Search results list:
+[Address: Hyder Manzil, 7 Tombs Rd...]
 
-[Thumbnail] [Name] [Condition] [Stock: X left] [Price] [+ Add button]
+[Phone: +91 XXXXXXXX]
+[SALE RECEIPT]
 
-- Zero-stock items shown disabled with "Out of Stock" label
+[Bill No: BILL-20240615-0012]
 
-The search input must be auto-focused on page load and after each bill creation.
-The "+ Add" button on a search result must be large enough to tap accurately
-on a touchscreen counter monitor.
+[Date: 15 June 2024]
+
+[Staff: Ahmed]
+
+[Payment: Cash]
+[Line items:]
+
+iPhone 12                     ₹16,500
+
+Grade A | 128GB | Black
+
+Box ✓  Charger ✓
+
+30 days warranty
+
+(Discount: ₹500)           -₹500
+
+---------
+
+Samsung Galaxy A54            ₹8,200
+
+Grade B | 128GB | Blue
+
+──────────────────────────────────
+
+SUBTOTAL                    ₹24,700
+
+DISCOUNT                      -₹500
+
+TOTAL                       ₹24,200
+
+[Payment: Cash]
+
+──────────────────────────────────
+
+Thank you for shopping at Used Mobile!
+
+Note: IMEI is NOT printed on the customer receipt. It is stored internally only.
 
 ---
 
@@ -232,10 +421,11 @@ on a touchscreen counter monitor.
 
 1. All form submissions show a loading state on the submit button.
 2. Successful operations show a toast notification (top-right, auto-dismiss 3s).
-3. Destructive actions (delete, deactivate) require a confirmation dialog.
+3. Destructive actions require a confirmation dialog.
 4. All tables support keyboard navigation.
-5. Empty states are always instructive (not just "No data").
-6. Pagination is always present when results could exceed the page size.
-7. All filter/sort state is in the URL (shareable, bookmarkable, browser-back works).
-8. On mobile, the admin panel degrades gracefully to stacked layouts.
-   The billing screen requires desktop or tablet.
+5. Empty states are always instructive.
+6. Pagination is present when results exceed the page size.
+7. All filter/sort state is URL-based (shareable, bookmarkable).
+8. The floating WhatsApp button appears on all public pages.
+9. On mobile, admin panel degrades gracefully. Billing screen requires desktop/tablet.
+10. WhatsApp buttons use `#25D366` exclusively to leverage brand recognition.

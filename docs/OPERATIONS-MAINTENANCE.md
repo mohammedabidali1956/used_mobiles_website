@@ -1,5 +1,3 @@
-# docs/16-OPERATIONS-MAINTENANCE.md
-
 # Operations and Maintenance
 
 ---
@@ -7,19 +5,45 @@
 ## Day-to-Day Operations
 
 ### What the Owner/Admin Manages Regularly
-- Adding new products (via admin panel → New Product).
-- Updating prices when market changes.
-- Restocking products after buying new phones (admin panel → Stock Management → Adjust).
-- Listing/unlisting products as needed.
-- Creating new staff accounts when staff join.
-- Deactivating staff accounts when staff leave.
-- Reviewing the daily sales bills (admin panel → Bills → filter by today).
+
+**Adding new stock (most frequent operation):**
+1. Admin panel → Products → Find the product model (e.g., "iPhone 12").
+2. If the model doesn't exist yet, create it (name, brand, category, description).
+3. Open the product → Phone Units section → "Add Unit".
+4. Fill in: grade, storage, color, condition, accessories, battery health
+   (optional), IMEI (optional), selling price, warranty.
+5. Save. The unit appears immediately in the public product page.
+
+**Marking a unit as unavailable for repair:**
+1. Admin panel → Phone Units (or find the product → Units).
+2. Find the unit → Actions → "Change Status" → In Repair → enter reason.
+3. Unit disappears from public immediately.
+4. When repaired: Change Status → Available.
+
+**Updating prices:**
+- To update the base/starting price of a product: edit the product → base_price.
+- To update the price of a specific unit: edit the phone unit → selling_price.
+- Changes reflect on the public site within the ISR revalidation window.
+
+**Listing/unlisting a product:**
+- Admin panel → Products → Toggle the "Listed" switch.
+- Unlisting hides the entire product from the public even if units are available.
+- Useful when the owner wants to temporarily pull a model from the website.
+
+**Reviewing today's sales:**
+- Admin panel → Bills → Filter by today's date.
+- Each bill shows which staff member, which units sold, payment method, and total.
+
+**Managing staff accounts:**
+- Admin panel → Users → Create, edit, or deactivate staff accounts.
+
+---
 
 ### What Requires No Regular Attention
 - Database backups (automatic via Neon).
 - SSL certificate renewal (automatic via Vercel).
 - Server maintenance (Vercel and Neon handle this).
-- CDN cache management (automatic via ISR).
+- CDN cache management (automatic via ISR + on-demand revalidation).
 - Error monitoring (Sentry sends email alerts automatically).
 
 ---
@@ -27,129 +51,123 @@
 ## Backup and Recovery
 
 ### Automatic Backups
-Neon performs continuous backups. Point-in-time restore is available:
-- Free tier: restore to any point within the last 7 days.
-- Pro tier: restore to any point within the last 30 days.
+Neon performs continuous backups with point-in-time restore (PITR):
+- Free tier: 7-day PITR.
+- Pro tier: 30-day PITR.
 
 To restore: log in to Neon dashboard → Branch → Restore to point in time.
-A new branch is created with the restored data. You can then clone it back
-to production or query it to recover specific records.
 
 ### Manual Export Backup (Recommended Weekly)
-Set up a weekly scheduled GitHub Action that runs:
 ```bash
 pg_dump $DIRECT_DATABASE_URL --format=custom --no-acl > backup-$(date +%Y%m%d).dump
-# Upload to S3 or Google Drive
+# Upload to Google Drive or private S3 bucket via GitHub Action
 ```
 
 ### Recovery Procedure (Major Data Loss)
-1. Identify the restore point (time before data loss).
+1. Identify restore point.
 2. Use Neon PITR to create a restored branch.
-3. Update `DATABASE_URL` in Vercel to point to restored branch (temporary).
-4. Verify data is correct in the restored branch.
-5. If correct, promote the restored branch to be the new main branch.
-6. Update `DATABASE_URL` back to the new main connection string.
+3. Temporarily update `DATABASE_URL` in Vercel to the restored branch.
+4. Verify data.
+5. Promote restored branch to main.
+6. Update `DATABASE_URL` to new main connection string.
 
-Total recovery time estimate: 30–60 minutes.
+Estimated recovery time: 30–60 minutes.
 
 ---
 
 ## Monitoring Procedures
 
-### Sentry (Error Monitoring)
-- Check Sentry dashboard weekly for new errors.
-- Any error spike (> 10 errors in an hour) triggers an email alert.
-- Errors include full stack trace and request context.
-- Fix and deploy: resolve in code, merge to main, Vercel auto-deploys.
+### Sentry
+- Check weekly; error spikes trigger email alerts.
+- Errors include full stack trace.
+- Fix → code → merge to main → Vercel auto-deploys.
 
 ### UptimeRobot
-- Configured to check the homepage every 1 minute.
-- Sends SMS/email alert if the site is down for > 3 minutes.
-- Check the UptimeRobot dashboard monthly to review uptime history.
+- Checks homepage every 1 minute.
+- SMS/email alert if down > 3 minutes.
 
 ### Vercel Analytics
-- Review weekly: which pages are slowest, which pages have most traffic.
-- If a page's LCP rises above 2.5s, investigate and optimize.
+- Review weekly: which pages are slowest.
+- If LCP rises above 2.5s on a page, investigate.
 
 ---
 
 ## Updating the System
 
-### Dependency Updates
-Run monthly:
-```bash
-npx npm-check-updates -u  # or use Dependabot (GitHub bot)
-npm install
-# Run tests
-# Deploy
-```
-
-### Schema Changes (Adding New Fields/Tables)
-1. Modify `prisma/schema.prisma`.
-2. Run `npx prisma migrate dev --name descriptive_name`.
-3. Review generated SQL.
-4. Commit migration files.
-5. Merge to main → Vercel deploys new code.
-6. Run `npx prisma migrate deploy` against production database.
-
-### Code Updates (Bug Fixes, Features)
+### Adding New Features
 1. Create branch → make changes → run tests.
-2. Create PR → merge to main.
-3. Vercel auto-deploys within 2–3 minutes.
-4. Verify on production URL.
+2. PR → merge to main → Vercel auto-deploys (2–3 minutes).
+
+### Schema Changes
+1. Modify `prisma/schema.prisma`.
+2. `npx prisma migrate dev --name descriptive_name`.
+3. Review generated SQL.
+4. Commit.
+5. Run `npx prisma migrate deploy` against production.
+
+### Changing the WhatsApp Number
+1. Admin panel → Settings → Edit `whatsapp_number`.
+2. All WhatsApp CTAs site-wide update immediately (they read from system_config).
+3. No code change or deployment needed.
+
+### Changing the Shop Phone Number
+1. Admin panel → Settings → Edit `shop_phone`.
+2. Footer and contact sections update on next page load.
 
 ---
 
 ## Future Scaling Considerations
 
-### When Catalog Exceeds 5,000 Products
-- Review and optimize database indexes.
-- Add Algolia or Typesense for search (replace PostgreSQL full-text search).
-- Consider adding Redis caching for frequently read data (category list, brand list).
-
-### When Traffic Exceeds Vercel Hobby Tier
-- Upgrade to Vercel Pro (~$20/month) — gives 100× more serverless function
-  execution time and removes bandwidth limits.
+### When Catalog Exceeds 5,000 Units
+- Review and add database indexes as needed.
+- Consider adding Algolia or Typesense for faster unit-level search.
+- Consider adding a Redis cache layer for system_config reads (currently DB-queried per request).
 
 ### When Multiple Locations Are Needed
-- Add a `location_id` field to products and bills.
-- Add location-based stock management.
-- This is a schema change — designed here, implemented in future phase.
+- Add a `location_id` field to products and phone_units.
+- Add location-based stock views.
+- This is a schema change — must be planned as a migration.
 
-### When Offline Billing Is Needed
-- Build a Service Worker for offline bill drafts.
-- Use browser IndexedDB to store draft bills.
-- Sync to server when internet reconnects.
-- This is a v2 feature — design must be added to the data model at that time.
+### When Customer Enquiry Tracking Is Needed
+- Add an `enquiries` table linked to a product or unit.
+- Track source (WhatsApp, call, walk-in) and outcome.
+- Build a CRM-lite view in the admin panel.
+- v2 feature.
+
+### When Online Reservations Are Needed
+- Add `status = 'RESERVED'` to phone_units.
+- Add a `reservation_expires_at` timestamp.
+- Build a reservation flow (customer reserves via website, staff confirms via WhatsApp).
+- v2 feature.
 
 ### When Customer Accounts Are Needed
-- Add a `customers` table with name, phone, email, purchase history.
-- Link `bills.customer_id` to the customers table.
-- Build a customer portal or WhatsApp integration.
+- Add a `customers` table (name, phone, purchase history).
+- Link `bills.customer_phone` to the customers table.
+- Build a customer purchase history view in admin.
+- v2 feature.
 
-### When Online Payment Is Needed
-- Integrate Razorpay or Stripe for online payment.
-- Add payment_status field to bills.
-- Build a checkout flow on the public site.
-- This is a significant scope addition — requires new pages, new API routes,
-  webhook handling, and payment reconciliation logic.
+### When Buy/Sell/Trade Is Needed on the Website
+- This requires significant scope expansion: online checkout, payment gateway
+  (Razorpay/Stripe), order management, delivery tracking.
+- Treat as a separate product phase, not an incremental feature.
+- Design the data model extension before starting implementation.
 
 ---
 
 ## Handover Checklist (Developer to Owner)
 
-The following must be completed before the developer hands the system to
-the business owner:
-
-- [ ] All Vercel environment variables documented and provided to owner.
+- [ ] Vercel environment variables documented and transferred.
 - [ ] Neon account access transferred to owner's email.
 - [ ] Cloudinary account access transferred to owner's email.
-- [ ] SUPER_ADMIN credentials documented in owner's password manager.
-- [ ] Owner trained on: adding products, restocking, creating staff accounts.
-- [ ] Owner trained on: reading the audit log, viewing reports.
-- [ ] Staff trained on: billing screen operation, creating bills, printing receipts.
-- [ ] Sentry alerts configured to send to owner's email.
-- [ ] UptimeRobot configured to send alerts to owner's phone.
+- [ ] SUPER_ADMIN credentials in owner's password manager; password changed after first login.
+- [ ] WhatsApp number configured in system_config and tested via live site.
+- [ ] Owner trained: adding products, adding phone units, adjusting unit status.
+- [ ] Owner trained: reviewing bills, running reports, managing staff accounts.
+- [ ] Staff trained: billing panel — search, select unit, create bill, print receipt.
+- [ ] At least 5 real products with real units seeded before handover.
+- [ ] Sentry alerts configured to owner's email.
+- [ ] UptimeRobot alerts configured to owner's phone.
 - [ ] Backup procedure documented and verified working.
-- [ ] Domain renewal date noted in owner's calendar.
-- [ ] Recovery procedure document provided to owner in writing.
+- [ ] Domain renewal date in owner's calendar.
+- [ ] Recovery procedure document provided in writing.
+- [ ] Google Maps link for shop address verified in footer/contact section.
