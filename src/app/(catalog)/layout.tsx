@@ -4,14 +4,6 @@ import { GENERAL_DEFAULTS } from "@/lib/validators/settings";
 import CatalogHeader from "./catalog-header";
 import CatalogFooter from "./catalog-footer";
 
-export const metadata: Metadata = {
-  title: {
-    template: "%s | MobileX",
-    default: "MobileX — Used Phones Store",
-  },
-  description: "Browse quality used and refurbished phones at great prices.",
-};
-
 async function getShopConfig() {
   try {
     const all = await systemConfigRepo.findAll();
@@ -35,6 +27,49 @@ async function getShopConfig() {
     };
   }
 }
+
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getShopConfig();
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
+
+  const titleText = `${config.shopName} — ${config.shopTagline || "Used Phones Store"}`;
+  const descText = "Browse quality used and refurbished phones at great prices.";
+
+  return {
+    metadataBase: new URL(baseUrl),
+    title: {
+      template: `%s | ${config.shopName}`,
+      default: titleText,
+    },
+    description: descText,
+    alternates: {
+      canonical: "./",
+    },
+    openGraph: {
+      title: titleText,
+      description: descText,
+      url: baseUrl,
+      siteName: config.shopName,
+      type: "website",
+      locale: "en_US",
+      images: [
+        {
+          url: `${baseUrl}/og-image.png`,
+          width: 1200,
+          height: 630,
+          alt: titleText,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: titleText,
+      description: descText,
+      images: [`${baseUrl}/og-image.png`],
+    },
+  };
+}
+
 
 export default async function CatalogLayout({
   children,

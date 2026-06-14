@@ -12,15 +12,35 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
   const category = await categoryRepo.findBySlug(slug);
+
   if (!category || !category.isActive || category.deletedAt) {
     return { title: "Category Not Found" };
   }
+
+  const title = `${category.name}`;
+  const description = category.description || `Browse our collection of used and refurbished ${category.name}. Quality guaranteed.`;
+
   return {
-    title: `${category.name}`,
-    description: category.description || `Browse our collection of used and refurbished ${category.name}.`,
+    title,
+    description,
+    alternates: {
+      canonical: `${baseUrl}/categories/${slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/categories/${slug}`,
+      type: "website",
+    },
+    twitter: {
+      title,
+      description,
+    },
   };
 }
+
 
 export default async function CategoryCatalogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;

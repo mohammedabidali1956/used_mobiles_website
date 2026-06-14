@@ -5,10 +5,49 @@ import { brandRepo, categoryRepo } from "@/lib/repositories";
 import ProductCard from "@/components/catalog/product-card";
 import FilterSidebar from "./filter-sidebar";
 
-export const metadata: Metadata = {
-  title: "Browse Phones",
-  description: "Search and filter our full range of used and refurbished smartphones.",
-};
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
+
+  let title = "Browse Phones";
+  let description = "Search and filter our full range of used and refurbished smartphones.";
+
+  if (params.brand) {
+    const brand = await brandRepo.findBySlug(params.brand);
+    if (brand) {
+      title = `${brand.name} Phones`;
+      description = `Browse and compare our collection of used and refurbished ${brand.name} smartphones. Warranty and accessories included.`;
+    }
+  } else if (params.category) {
+    const category = await categoryRepo.findBySlug(params.category);
+    if (category) {
+      title = `${category.name}`;
+      description = category.description || `Browse and compare our collection of refurbished ${category.name}. Warranty and accessories included.`;
+    }
+  }
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${baseUrl}/phones`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/phones`,
+    },
+    twitter: {
+      title,
+      description,
+    },
+  };
+}
+
 
 interface SearchParams {
   q?: string;

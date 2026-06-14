@@ -5,9 +5,14 @@ import { PUBLIC_VISIBILITY_FILTER } from "@/lib/repositories/product.repository"
 import ProductCard from "@/components/catalog/product-card";
 import { GENERAL_DEFAULTS, CATALOG_DEFAULTS } from "@/lib/validators/settings";
 
-export const metadata: Metadata = {
-  title: "Home",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
+  return {
+    alternates: {
+      canonical: baseUrl,
+    },
+  };
+}
 
 async function getCatalogConfig() {
   try {

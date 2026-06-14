@@ -52,11 +52,39 @@ async function getCatalogConfig() {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
   try {
     const product = await ProductService.getProductDetailsForPublic(slug);
+    const title = `${product.name} — Used & Refurbished`;
+    const description = product.description 
+      ? product.description.substring(0, 160)
+      : `Buy a quality refurbished ${product.name} at great prices. ${product.availableUnitCount} physical units currently in stock.`;
+    const imageUrl = product.primaryImageUrl || `${baseUrl}/og-image.png`;
+
     return {
-      title: product.name,
-      description: product.description || `Buy quality used and refurbished ${product.name} at great prices.`,
+      title,
+      description,
+      alternates: {
+        canonical: `${baseUrl}/phones/${slug}`,
+      },
+      openGraph: {
+        title,
+        description,
+        url: `${baseUrl}/phones/${slug}`,
+        type: "website",
+        images: [
+          {
+            url: imageUrl,
+            alt: product.name,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [imageUrl],
+      },
     };
   } catch {
     return {
@@ -112,8 +140,38 @@ export default async function ProductDetailPage({ params }: PageProps) {
     return `https://wa.me/${config.shopWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
   };
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "image": product.primaryImageUrl || `${baseUrl}/og-image.png`,
+    "description": product.description || `Buy quality used and refurbished ${product.name}.`,
+    "sku": product.id,
+    "brand": {
+      "@type": "Brand",
+      "name": product.brandName,
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `${baseUrl}/phones/${product.slug}`,
+      "priceCurrency": "USD",
+      "price": product.basePrice,
+      "itemCondition": product.baseCondition === "NEW"
+        ? "https://schema.org/NewCondition"
+        : "https://schema.org/UsedCondition",
+      "availability": product.availableUnitCount > 0
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Breadcrumb */}
       <div className="mb-6 text-xs text-zinc-500">
         <Link href="/" className="hover:text-zinc-300">Home</Link>

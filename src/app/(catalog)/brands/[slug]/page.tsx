@@ -12,15 +12,35 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mobilex.com";
   const brand = await brandRepo.findBySlug(slug);
+  
   if (!brand || !brand.isActive || brand.deletedAt) {
     return { title: "Brand Not Found" };
   }
+
+  const title = `${brand.name} Phones`;
+  const description = `Browse our collection of quality used and refurbished ${brand.name} smartphones. Warranty and packaging options available.`;
+
   return {
-    title: `${brand.name} Phones`,
-    description: `Browse our collection of used and refurbished ${brand.name} smartphones.`,
+    title,
+    description,
+    alternates: {
+      canonical: `${baseUrl}/brands/${slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/brands/${slug}`,
+      type: "website",
+    },
+    twitter: {
+      title,
+      description,
+    },
   };
 }
+
 
 export default async function BrandCatalogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
