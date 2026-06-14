@@ -172,6 +172,24 @@ export class ProductRepository {
     return this.db.product.count({ where });
   }
 
+  /** Lock a product row for update inside a transaction. */
+  async lockForUpdate(
+    id: string,
+    tx: Prisma.TransactionClient
+  ): Promise<{ id: string; stockQuantity: number } | null> {
+    const rows = await tx.$queryRaw<
+      { id: string; stock_quantity: number }[]
+    >`
+      SELECT id, stock_quantity
+      FROM products
+      WHERE id = ${id}::uuid
+      FOR UPDATE
+    `;
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return { id: row.id, stockQuantity: row.stock_quantity };
+  }
+
   // ---------------------------------------------------------------------------
   // Images
   // ---------------------------------------------------------------------------
