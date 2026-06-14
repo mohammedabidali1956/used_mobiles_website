@@ -78,6 +78,12 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
             >
               Inventory
             </Link>
+            <Link
+              href="/admin/billing"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Billing
+            </Link>
           </nav>
         </div>
 

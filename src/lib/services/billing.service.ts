@@ -560,4 +560,16 @@ export class BillingService {
       pageSize,
     };
   }
+
+  /**
+   * List all staff members for filters (Admin/Super-Admin only).
+   * Access role: ADMIN, SUPER_ADMIN.
+   */
+  static async listStaffMembers(user: SessionPayload) {
+    requireRole(user.role, "ADMIN");
+    return prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    });
+  }
 }

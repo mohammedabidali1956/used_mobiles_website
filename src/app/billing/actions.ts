@@ -1,7 +1,7 @@
 "use server";
 
 import { getSession } from "@/lib/auth";
-import { BillingService } from "@/lib/services";
+import { BillingService, PhoneUnitService, ProductService } from "@/lib/services";
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { AppError } from "@/lib/errors/AppError";
@@ -131,4 +131,66 @@ export async function listBillsAction(query: any) {
     return handleError(error);
   }
 }
+
+/**
+ * Server action to search available physical phone units with dynamic metadata.
+ * Access role: STAFF, ADMIN, SUPER_ADMIN.
+ */
+export async function searchAvailableUnitsAction(q: string) {
+  const session = await getSession();
+  if (!session) {
+    return { success: false as const, error: "Authentication required." };
+  }
+
+  try {
+    const result = await PhoneUnitService.listUnits(session, {
+      q,
+      status: "AVAILABLE",
+      pageSize: "50",
+      page: "1",
+    });
+
+    if (result.items.length === 0) {
+      return { success: true as const, units: [] };
+    }
+
+    // Map parent product details
+    const productIds = Array.from(new Set(result.items.map((item) => item.productId)));
+    const products = await ProductService.getProductSummariesByIds(session, productIds);
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const mapped = result.items.map((item) => ({
+      ...item,
+      product: productMap.get(item.productId) || { name: "Unknown Model", sku: "" },
+    }));
+
+    return {
+      success: true as const,
+      units: mapped,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Server action to list all staff members, restricted to ADMIN and SUPER_ADMIN.
+ */
+export async function listStaffMembersAction() {
+  const session = await getSession();
+  if (!session) {
+    return { success: false as const, error: "Authentication required." };
+  }
+
+  try {
+    const staff = await BillingService.listStaffMembers(session);
+    return {
+      success: true as const,
+      staff,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 
