@@ -14,14 +14,7 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  // Enforce role authorization: only ADMIN or SUPER_ADMIN are permitted
-  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
-    if (session.role === "STAFF") {
-      redirect("/billing");
-    } else {
-      redirect("/login");
-    }
-  }
+
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">

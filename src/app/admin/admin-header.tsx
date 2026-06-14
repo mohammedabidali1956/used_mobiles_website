@@ -56,17 +56,27 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
             </span>
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
+            {role !== "STAFF" && (
+              <>
+                <Link
+                  href="/admin"
+                  className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/admin/products"
+                  className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+                >
+                  Products
+                </Link>
+              </>
+            )}
             <Link
-              href="/admin"
+              href="/admin/inventory"
               className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
             >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/products"
-              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
-            >
-              Products
+              Inventory
             </Link>
           </nav>
         </div>

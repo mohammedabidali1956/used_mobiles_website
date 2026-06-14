@@ -604,7 +604,7 @@ export class PhoneUnitService {
     // 2. Validate query
     const validated = zListUnitsAdminQuery.parse(query);
 
-    const { page, pageSize, q, status, productId, grade, storage, isDeleted } = validated;
+    const { page, pageSize, q, status, productId, grade, storage, isDeleted, condition, minBatteryHealth } = validated;
 
     const skip = (page - 1) * pageSize;
     const take = pageSize;
@@ -657,6 +657,16 @@ export class PhoneUnitService {
       }
     }
 
+    // 7. Condition filter
+    if (condition) {
+      where.condition = condition;
+    }
+
+    // 8. Battery health filter
+    if (minBatteryHealth !== undefined) {
+      where.batteryHealth = { gte: minBatteryHealth };
+    }
+
     const [items, total] = await Promise.all([
       phoneUnitRepo.findManyAdmin({
         where,
@@ -701,4 +711,20 @@ export class PhoneUnitService {
       pageSize,
     };
   }
+
+  /**
+   * Get stock movement history for a phone unit.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   */
+  static async getUnitMovementHistory(user: SessionPayload, phoneUnitId: string) {
+    requireRole(user.role, "STAFF");
+    return prisma.stockMovement.findMany({
+      where: { phoneUnitId },
+      include: {
+        creator: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 }
+

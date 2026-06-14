@@ -101,6 +101,8 @@ export const zListUnitsAdminQuery = zPaginationQuery.extend({
   grade: zGrade.optional(),
   storage: z.string().trim().optional(),
   isDeleted: zBooleanString,
+  condition: zCondition.optional(),
+  minBatteryHealth: z.string().optional().transform((v) => v ? parseInt(v) : undefined),
 });
 
 export type ListUnitsAdminQuery = z.infer<typeof zListUnitsAdminQuery>;

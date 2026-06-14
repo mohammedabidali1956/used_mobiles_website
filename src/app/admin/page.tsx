@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 
+import { redirect } from "next/navigation";
+
 export const metadata: Metadata = {
   title: "Dashboard - MobileX Admin",
   description: "MobileX administrator management workspace.",
@@ -8,6 +10,10 @@ export const metadata: Metadata = {
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
+
+  if (session?.role === "STAFF") {
+    redirect("/billing");
+  }
 
   return (
     <div className="flex-1 flex flex-col space-y-8">

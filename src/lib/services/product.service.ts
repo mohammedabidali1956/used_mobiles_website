@@ -730,4 +730,46 @@ export class ProductService {
       pageSize,
     };
   }
+
+  /**
+   * List active product options for dropdown selectors/filters.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   */
+  static async listActiveProductOptions(user: SessionPayload) {
+    requireRole(user.role, "STAFF");
+    return prisma.product.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, sku: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Get name and SKU of a product.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   */
+  static async getProductSummary(user: SessionPayload, id: string) {
+    requireRole(user.role, "STAFF");
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, name: true, sku: true },
+    });
+    if (!product) {
+      throw new AppError("NOT_FOUND", `Product with id "${id}" was not found.`);
+    }
+    return product;
+  }
+
+  /**
+   * Get names and SKUs for a list of product IDs.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   */
+  static async getProductSummariesByIds(user: SessionPayload, ids: string[]) {
+    requireRole(user.role, "STAFF");
+    return prisma.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, sku: true },
+    });
+  }
 }
+
