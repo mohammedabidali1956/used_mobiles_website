@@ -109,6 +109,17 @@ export default async function AdminBillingDetailPage({ params }: PageProps) {
             Registered on <span className="font-semibold text-zinc-300">{new Date(bill.createdAt).toLocaleDateString()}</span> at <span className="font-semibold text-zinc-300">{new Date(bill.createdAt).toLocaleTimeString()}</span>
           </p>
         </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/billing/${bill.id}/receipt`}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-indigo-500 transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4" />
+            </svg>
+            Print Receipt
+          </Link>
+        </div>
       </div>
 
       {/* Grid details */}
