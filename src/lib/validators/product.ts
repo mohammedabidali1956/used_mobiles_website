@@ -123,6 +123,7 @@ export type AddProductImageBody = z.infer<typeof zAddProductImageBody>;
 // ---------------------------------------------------------------------------
 
 export const zPublicProductsQuery = zPaginationQuery.extend({
+  q: z.string().optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
   condition: zCondition.optional(),
@@ -147,6 +148,7 @@ export type PublicProductsQuery = z.infer<typeof zPublicProductsQuery>;
 // ---------------------------------------------------------------------------
 
 export const zAdminProductsQuery = zPaginationQuery.extend({
+  q: z.string().optional(),
   isListed: zBooleanString,
   isDeleted: zBooleanString,
   hasZeroUnits: zBooleanString,

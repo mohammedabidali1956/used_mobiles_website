@@ -210,8 +210,12 @@ export class ProductRepository {
   // Writes
   // ---------------------------------------------------------------------------
 
-  async create(data: Prisma.ProductCreateInput): Promise<Product> {
-    return this.db.product.create({ data });
+  async create(
+    data: Prisma.ProductCreateInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<Product> {
+    const client = tx ?? this.db;
+    return client.product.create({ data });
   }
 
   /**
@@ -222,30 +226,44 @@ export class ProductRepository {
   async update(
     id: string,
     expectedVersion: number,
-    data: Prisma.ProductUpdateInput
+    data: Prisma.ProductUpdateInput,
+    tx?: Prisma.TransactionClient
   ): Promise<Product> {
-    return this.db.product.update({
+    const client = tx ?? this.db;
+    return client.product.update({
       where: { id, version: expectedVersion },
       data: { ...data, version: { increment: 1 } },
     });
   }
 
-  async softDelete(id: string): Promise<Product> {
-    return this.db.product.update({
+  async softDelete(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<Product> {
+    const client = tx ?? this.db;
+    return client.product.update({
       where: { id },
       data: { deletedAt: new Date(), isListed: false },
     });
   }
 
-  async restore(id: string): Promise<Product> {
-    return this.db.product.update({
+  async restore(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<Product> {
+    const client = tx ?? this.db;
+    return client.product.update({
       where: { id },
       data: { deletedAt: null },
     });
   }
 
-  async hardDelete(id: string): Promise<void> {
-    await this.db.product.delete({ where: { id } });
+  async hardDelete(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<void> {
+    const client = tx ?? this.db;
+    await client.product.delete({ where: { id } });
   }
 
   /** Check whether any bill_items reference units of this product — blocks hard delete. */
