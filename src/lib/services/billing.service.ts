@@ -1,7 +1,8 @@
 import { Prisma, PaymentMethod, StockMovementType, PhoneUnitStatus } from "@prisma/client";
-import { requireRole } from "@/lib/auth/permissions";
+import { z } from "zod";
+import { requireRole, hasRole } from "@/lib/auth/permissions";
 import { AppError, unitNotAvailable, insufficientStock, notFound } from "@/lib/errors/AppError";
-import { zCreateBillBody } from "@/lib/validators/bill";
+import { zCreateBillBody, zListBillsQuery } from "@/lib/validators/bill";
 import {
   billRepo,
   productRepo,
@@ -421,6 +422,142 @@ export class BillingService {
         currencySymbol,
         receiptFooter,
       },
+    };
+  }
+
+  /**
+   * Fetch complete bill details with related items.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   * Enforces staff view boundary (Staff can only view bills they created).
+   * Masks IMEI for Staff role.
+   */
+  static async getBillDetails(user: SessionPayload, id: string) {
+    requireRole(user.role, "STAFF");
+
+    const bill = await billRepo.findById(id);
+    if (!bill) {
+      throw notFound("Bill", id);
+    }
+
+    // RBAC: Staff is restricted to viewing bills they created personally
+    if (user.role === "STAFF" && bill.staffId !== user.sub) {
+      throw new AppError("FORBIDDEN", "You do not have permission to view this bill.");
+    }
+
+    const hideImei = !hasRole(user.role, "ADMIN");
+
+    return {
+      id: bill.id,
+      billNumber: bill.billNumber,
+      staffId: bill.staffId,
+      customerName: bill.customerName,
+      customerPhone: bill.customerPhone,
+      subtotal: bill.subtotal.toNumber(),
+      discount: bill.discount.toNumber(),
+      total: bill.total.toNumber(),
+      paymentMethod: bill.paymentMethod,
+      notes: bill.notes,
+      createdAt: bill.createdAt,
+      staff: {
+        name: bill.staff.name,
+        email: bill.staff.email,
+      },
+      billItems: bill.billItems.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        phoneUnitId: item.phoneUnitId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toNumber(),
+        discount: item.discount.toNumber(),
+        lineTotal: item.lineTotal.toNumber(),
+        productName: item.productName,
+        productSku: item.productSku,
+        unitSku: item.unitSku,
+        unitGrade: item.unitGrade,
+        unitStorage: item.unitStorage,
+        unitColor: item.unitColor,
+        unitCondition: item.unitCondition,
+        unitHasBox: item.unitHasBox,
+        unitHasCharger: item.unitHasCharger,
+        unitImei: hideImei ? null : item.unitImei,
+      })),
+    };
+  }
+
+  /**
+   * Search and list billing records with pagination and filters.
+   * Access role: STAFF, ADMIN, SUPER_ADMIN.
+   * Enforces staff view boundary (Staff can only view their own bills).
+   */
+  static async listBills(user: SessionPayload, query: z.input<typeof zListBillsQuery>) {
+    requireRole(user.role, "STAFF");
+
+    const validated = zListBillsQuery.parse(query);
+    const { page, pageSize, from, to, staffId, q } = validated;
+
+    const skip = (page - 1) * pageSize;
+    const take = pageSize;
+
+    const where: Prisma.BillWhereInput = {};
+
+    // RBAC: Staff is restricted to viewing only their own bills
+    if (user.role === "STAFF") {
+      where.staffId = user.sub;
+    } else if (staffId) {
+      where.staffId = staffId;
+    }
+
+    // Time-range filter
+    if (from || to) {
+      where.createdAt = {};
+      if (from) {
+        where.createdAt.gte = new Date(from);
+      }
+      if (to) {
+        where.createdAt.lte = new Date(to);
+      }
+    }
+
+    // Text search query
+    if (q && q.trim().length > 0) {
+      const cleanQ = q.trim();
+      where.OR = [
+        { billNumber: { contains: cleanQ, mode: "insensitive" } },
+        { customerName: { contains: cleanQ, mode: "insensitive" } },
+        { customerPhone: { contains: cleanQ, mode: "insensitive" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      billRepo.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      billRepo.count(where),
+    ]);
+
+    const mappedItems = items.map((bill) => ({
+      id: bill.id,
+      billNumber: bill.billNumber,
+      staffId: bill.staffId,
+      staffName: bill.staff.name,
+      customerName: bill.customerName,
+      customerPhone: bill.customerPhone,
+      subtotal: bill.subtotal.toNumber(),
+      discount: bill.discount.toNumber(),
+      total: bill.total.toNumber(),
+      paymentMethod: bill.paymentMethod,
+      notes: bill.notes,
+      createdAt: bill.createdAt,
+    }));
+
+    return {
+      items: mappedItems,
+      total,
+      page,
+      pageSize,
     };
   }
 }

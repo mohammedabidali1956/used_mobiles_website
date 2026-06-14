@@ -92,6 +92,7 @@ export const zListBillsQuery = zPaginationQuery.extend({
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   staffId: z.string().uuid().optional(),
+  q: z.string().trim().optional(),
 });
 
 export type ListBillsQuery = z.infer<typeof zListBillsQuery>;

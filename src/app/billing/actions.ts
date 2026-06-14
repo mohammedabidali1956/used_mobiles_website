@@ -91,3 +91,44 @@ export async function getReceiptDataAction(billId: string) {
     return handleError(error);
   }
 }
+
+/**
+ * Server action to fetch complete bill details, enforcing RBAC and masking IMEI for staff.
+ */
+export async function getBillDetailsAction(id: string) {
+  const session = await getSession();
+  if (!session) {
+    return { success: false as const, error: "Authentication required." };
+  }
+
+  try {
+    const bill = await BillingService.getBillDetails(session, id);
+    return {
+      success: true as const,
+      bill,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Server action to list bills with pagination, range queries, and search constraints.
+ */
+export async function listBillsAction(query: any) {
+  const session = await getSession();
+  if (!session) {
+    return { success: false as const, error: "Authentication required." };
+  }
+
+  try {
+    const result = await BillingService.listBills(session, query);
+    return {
+      success: true as const,
+      ...result,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
