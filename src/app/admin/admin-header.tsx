@@ -84,6 +84,12 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
             >
               Billing
             </Link>
+            <Link
+              href="/admin/reports"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Reports
+            </Link>
           </nav>
         </div>
 
