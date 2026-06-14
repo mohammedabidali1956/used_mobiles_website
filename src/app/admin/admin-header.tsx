@@ -90,6 +90,12 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
             >
               Reports
             </Link>
+            <Link
+              href="/admin/users"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Users
+            </Link>
           </nav>
         </div>
 
