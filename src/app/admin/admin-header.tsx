@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Link from "next/link";
+
 interface AdminHeaderProps {
   name: string;
   role: string;
@@ -45,12 +47,28 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-800 bg-zinc-950 px-6 py-4 shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-        {/* Brand / Logo */}
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-2 rounded bg-indigo-500"></div>
-          <span className="text-xl font-bold tracking-tight text-white">
-            MobileX Admin
-          </span>
+        {/* Brand / Logo & Navigation */}
+        <div className="flex items-center gap-8">
+          <Link href="/admin" className="flex items-center gap-2">
+            <div className="h-6 w-2 rounded bg-indigo-500"></div>
+            <span className="text-xl font-bold tracking-tight text-white">
+              MobileX Admin
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-6 md:flex">
+            <Link
+              href="/admin"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/admin/products"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Products
+            </Link>
+          </nav>
         </div>
 
         {/* User Info & Actions */}
