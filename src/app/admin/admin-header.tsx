@@ -96,6 +96,12 @@ export default function AdminHeader({ name, role }: AdminHeaderProps) {
             >
               Users
             </Link>
+            <Link
+              href="/admin/settings"
+              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Settings
+            </Link>
           </nav>
         </div>
 
