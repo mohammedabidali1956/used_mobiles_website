@@ -15,7 +15,6 @@ export default async function AdminLayout({
   }
 
 
-
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 print:bg-white print:text-black print:min-h-0">
       <div className="print:hidden">

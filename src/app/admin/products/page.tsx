@@ -38,7 +38,7 @@ export default async function AdminProductsPage({
   }
   if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     if (session.role === "STAFF") {
-      redirect("/billing");
+      redirect("/admin/billing/new");
     } else {
       redirect("/login");
     }

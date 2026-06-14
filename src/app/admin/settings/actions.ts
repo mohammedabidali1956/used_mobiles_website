@@ -21,7 +21,7 @@ function handleError(error: unknown) {
   console.error("[SETTINGS_ACTION_ERROR]", error);
   return {
     success: false as const,
-    error: error instanceof Error ? error.message : "An unexpected error occurred.",
+    error: "An unexpected error occurred. Please try again later.",
   };
 }
 

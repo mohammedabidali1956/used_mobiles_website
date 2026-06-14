@@ -6,22 +6,13 @@ import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { AppError } from "@/lib/errors/AppError";
 
+import { handleActionError } from "@/lib/errors/handler";
+
+/**
+ * Standardized server action error handler.
+ */
 function handleError(error: unknown) {
-  if (error instanceof ZodError) {
-    return {
-      success: false as const,
-      error: "Validation failed. Please check all fields.",
-      details: error.flatten().fieldErrors,
-    };
-  }
-  if (error instanceof AppError) {
-    return { success: false as const, error: error.message };
-  }
-  console.error("[USER_ACTIONS_ERROR]", error);
-  return {
-    success: false as const,
-    error: error instanceof Error ? error.message : "An unexpected error occurred.",
-  };
+  return handleActionError(error);
 }
 
 export async function createUserAction(data: any) {

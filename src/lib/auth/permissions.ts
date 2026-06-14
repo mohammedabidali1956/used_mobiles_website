@@ -72,12 +72,12 @@ export function requireExactRole(userRole: Role, requiredRole: Role): void {
 
 /**
  * Returns the home URL for a given role after login.
- *   STAFF       → /billing
+ *   STAFF       → /admin/billing/new
  *   ADMIN       → /admin
  *   SUPER_ADMIN → /admin
  */
 export function getRoleHomeUrl(role: Role): string {
-  return role === "STAFF" ? "/billing" : "/admin";
+  return role === "STAFF" ? "/admin/billing/new" : "/admin";
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ export default async function AdminDashboardPage() {
   const session = await getSession();
 
   if (session?.role === "STAFF") {
-    redirect("/billing");
+    redirect("/admin/billing/new");
   }
 
   return (

@@ -8,29 +8,13 @@ import { AppError } from "@/lib/errors/AppError";
 import { zCreatePhoneUnitBody, zUpdatePhoneUnitBody } from "@/lib/validators/phoneUnit";
 import type { PhoneUnitStatus } from "@prisma/client";
 
+import { handleActionError } from "@/lib/errors/handler";
+
 /**
  * Standardized server action error handler.
- * Formats AppErrors, ZodErrors, and unexpected system errors.
  */
 function handleError(error: unknown) {
-  if (error instanceof ZodError) {
-    return {
-      success: false as const,
-      error: "Validation failed. Please verify all fields.",
-      details: error.flatten().fieldErrors,
-    };
-  }
-  if (error instanceof AppError) {
-    return {
-      success: false as const,
-      error: error.message,
-    };
-  }
-  console.error("[INVENTORY_ACTION_ERROR]", error);
-  return {
-    success: false as const,
-    error: error instanceof Error ? error.message : "An unexpected error occurred.",
-  };
+  return handleActionError(error);
 }
 
 export async function createUnitAction(productId: string, data: any) {

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:demo-seed": "ts-node prisma/demo-seed.ts",
+    "db:reset": "prisma migrate reset --force",
+    "db:reseed": "prisma migrate reset --force && ts-node prisma/demo-seed.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

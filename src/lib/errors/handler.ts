@@ -63,3 +63,29 @@ export function handleRouteError(error: unknown): NextResponse {
     { status: 500 }
   );
 }
+
+/**
+ * Sanitizes errors thrown inside Next.js Server Actions.
+ * Prevents internal details and stack traces from leaking to the client.
+ */
+export function handleActionError(error: unknown) {
+  if (error instanceof ZodError) {
+    return {
+      success: false as const,
+      error: "Validation failed. Please verify all fields.",
+      details: error.flatten().fieldErrors,
+    };
+  }
+  if (error instanceof AppError) {
+    return {
+      success: false as const,
+      error: error.message,
+    };
+  }
+  console.error("[SERVER_ACTION_ERROR]", error);
+  return {
+    success: false as const,
+    error: "An unexpected error occurred. Please try again later.",
+  };
+}
+
