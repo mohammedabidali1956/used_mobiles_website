@@ -30,6 +30,7 @@ enum Grade {
 
 enum PhoneUnitStatus {
   AVAILABLE
+  RESERVED
   SOLD
   IN_REPAIR
   DEFECTIVE

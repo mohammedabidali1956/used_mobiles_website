@@ -66,7 +66,7 @@ export class ProductService {
    */
   static async createProduct(
     user: SessionPayload,
-    data: CreateProductBody,
+    data: z.input<typeof zCreateProductBody>,
     ipAddress?: string,
     userAgent?: string
   ) {

@@ -141,6 +141,17 @@ export class PhoneUnitRepository {
     });
   }
 
+  async restore(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<PhoneUnit> {
+    const client = tx ?? this.db;
+    return client.phoneUnit.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  }
+
   /** Count units by status for the admin product detail view. */
   async countByStatus(
     productId: string

@@ -22,14 +22,14 @@ export type Grade = z.infer<typeof zGrade>;
 export const zCondition = z.enum(["NEW", "LIKE_NEW", "GOOD", "FAIR"]);
 export type Condition = z.infer<typeof zCondition>;
 
-export const zPhoneUnitStatus = z.enum(["AVAILABLE", "SOLD", "IN_REPAIR", "DEFECTIVE"]);
+export const zPhoneUnitStatus = z.enum(["AVAILABLE", "SOLD", "IN_REPAIR", "DEFECTIVE", "RESERVED"]);
 export type PhoneUnitStatus = z.infer<typeof zPhoneUnitStatus>;
 
 /**
  * Statuses that can be set via the admin status-change endpoint.
  * SOLD is excluded — it can only be set via the billing transaction.
  */
-export const zAdminSettableStatus = z.enum(["AVAILABLE", "IN_REPAIR", "DEFECTIVE"]);
+export const zAdminSettableStatus = z.enum(["AVAILABLE", "IN_REPAIR", "DEFECTIVE", "RESERVED"]);
 export type AdminSettableStatus = z.infer<typeof zAdminSettableStatus>;
 
 // ---------------------------------------------------------------------------
